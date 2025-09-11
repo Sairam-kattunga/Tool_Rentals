@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const primary = Color(0xFF0D47A1); // Deep Blue
-  static const accent = Color(0xFFFFC107);  // Amber
-  static const background = Color(0xFFF2F2F2);
-  static const error = Color(0xFFD32F2F);
+  static const Color primary = Color(0xFF203a43);
+  static const Color secondary = Color(0xFF2c5364);
+  static const Color accent = Colors.orangeAccent;
+  static const Color background = Color(0xFF0f2027);
+  static const Color white = Colors.white;
 }

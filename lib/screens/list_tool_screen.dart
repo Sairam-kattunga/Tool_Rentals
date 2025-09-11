@@ -15,18 +15,42 @@ class _ListToolScreenState extends State<ListToolScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
 
   String? _selectedCategory;
   bool _isAvailable = true;
   bool _isLoading = false;
 
   final List<String> categories = [
-    "Electrical",
-    "Gardening",
-    "Construction",
-    "Plumbing",
-    "Painting",
-    "Others"
+    "Accommodation & Spaces",
+    "Audio & Video Equipment",
+    "Automobiles & Vehicles",
+    "Books",
+    "Catering & Wedding Supplies",
+    "Computers & Accessories",
+    "Construction Equipment",
+    "Electronics & Gadgets",
+    "Engineering Machinery / Heavy Equipment",
+    "Events & Party Supplies",
+    "Farm & Agricultural Equipment",
+    "Fitness & Sports Equipment",
+    "Fishing Gear & Nets",
+    "Fly & Floats (Boats, Water Sports Gear)",
+    "Furniture & Decor",
+    "Garden Tools & Outdoor Equipment",
+    "Generators & Power Equipment",
+    "Heavy Vehicles & Earthmovers",
+    "Home Appliances & Utilities",
+    "Lifestyle Products",
+    "Medical Equipment & Services",
+    "Mobile Phones & Tablets",
+    "Musical Instruments",
+    "Office Equipment & Supplies",
+    "Outdoor Camping Gear",
+    "Pets & Plants",
+    "Security & Safety Equipment",
+    "Other Products"
   ];
 
   Future<void> _saveTool() async {
@@ -45,8 +69,10 @@ class _ListToolScreenState extends State<ListToolScreen> {
         "name": _nameController.text.trim(),
         "description": _descController.text.trim(),
         "pricePerDay": double.parse(_priceController.text.trim()),
-        "category": _selectedCategory ?? "Others",
+        "category": _selectedCategory ?? "Other Products",
         "available": _isAvailable,
+        "city": _cityController.text.trim(),
+        "location": _locationController.text.trim(),
         "createdAt": FieldValue.serverTimestamp(),
       });
 
@@ -65,15 +91,22 @@ class _ListToolScreenState extends State<ListToolScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        title: const Text("Success"),
-        content: const Text("Your tool has been listed successfully!"),
+        backgroundColor: const Color(0xFF203a43),
+        title: const Text(
+          "Success",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          "Your tool has been listed successfully!",
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.pushReplacementNamed(context, '/home'); // ✅ Go home after success
+              Navigator.pushReplacementNamed(context, '/home');
             },
-            child: const Text("OK"),
+            child: const Text("OK", style: TextStyle(color: Colors.greenAccent)),
           ),
         ],
       ),
@@ -81,18 +114,30 @@ class _ListToolScreenState extends State<ListToolScreen> {
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    _priceController.dispose();
+    _cityController.dispose();
+    _locationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        Navigator.pushReplacementNamed(context, '/home'); // ✅ Instead of closing app, go back home
-        return false; // Prevents default app close
+        Navigator.pushReplacementNamed(context, '/home');
+        return false;
       },
       child: Scaffold(
+        // Remove extendBodyBehindAppBar
         appBar: AppBar(
           title: const Text("List a Tool", style: TextStyle(color: Colors.white)),
-          backgroundColor: const Color(0xFF203a43),
+          backgroundColor: const Color(0xFF203a43), // Add a solid background color
           elevation: 0,
           centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
@@ -110,57 +155,76 @@ class _ListToolScreenState extends State<ListToolScreen> {
               ),
             ),
             SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0), // Reduced top padding
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 80),
                     const Text(
-                      "List your tool for rent",
+                      "Your next rental starts here",
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 28,
+                        fontSize: 32,
                         fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Fill out the form to list your tool for rent.",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 16,
+                      ),
+                    ),
+                    const SizedBox(height: 40),
 
                     _buildTextField(
                       controller: _nameController,
-                      hint: "Tool Name",
-                      validator: (val) => val == null || val.isEmpty ? "Enter tool name" : null,
+                      label: "Tool Name",
+                      validator: (val) => val == null || val.isEmpty ? "Please enter a tool name" : null,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
                     _buildTextField(
                       controller: _descController,
-                      hint: "Description",
+                      label: "Description",
                       maxLines: 3,
-                      validator: (val) => val == null || val.isEmpty ? "Enter description" : null,
+                      validator: (val) => val == null || val.isEmpty ? "Please enter a description" : null,
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
                     _buildTextField(
                       controller: _priceController,
-                      hint: "Price per Day",
+                      label: "Price per Day (₹)",
                       keyboard: TextInputType.number,
-                      validator: (val) => val == null || val.isEmpty ? "Enter price" : null,
+                      validator: (val) {
+                        if (val == null || val.isEmpty) return "Please enter a price";
+                        if (double.tryParse(val) == null) return "Please enter a valid number";
+                        return null;
+                      },
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
+
+                    _buildTextField(
+                      controller: _cityController,
+                      label: "City",
+                      validator: (val) => val == null || val.isEmpty ? "Please enter a city" : null,
+                    ),
+                    const SizedBox(height: 24),
+
+                    _buildTextField(
+                      controller: _locationController,
+                      label: "Location (Google Maps Link)",
+                      validator: (val) => val == null || val.isEmpty ? "Please enter a location link" : null,
+                    ),
+                    const SizedBox(height: 24),
 
                     _buildDropdownField(),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 24),
 
-                    SwitchListTile(
-                      title: const Text("Available for Rent", style: TextStyle(color: Colors.white)),
-                      value: _isAvailable,
-                      onChanged: (val) => setState(() => _isAvailable = val),
-                      activeColor: Colors.lightGreenAccent,
-                      tileColor: Colors.white.withOpacity(0.1),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    ),
+                    _buildAvailabilitySwitch(),
                     const SizedBox(height: 40),
 
                     _isLoading
@@ -169,6 +233,7 @@ class _ListToolScreenState extends State<ListToolScreen> {
                       text: "List Tool",
                       onTap: _saveTool,
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -181,7 +246,7 @@ class _ListToolScreenState extends State<ListToolScreen> {
 
   Widget _buildTextField({
     required TextEditingController controller,
-    required String hint,
+    required String label,
     String? Function(String?)? validator,
     int maxLines = 1,
     TextInputType keyboard = TextInputType.text,
@@ -193,14 +258,22 @@ class _ListToolScreenState extends State<ListToolScreen> {
       validator: validator,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white70),
+        labelText: label,
+        labelStyle: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
-        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        fillColor: Colors.white.withOpacity(0.08),
+        contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
+          borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.white10),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Colors.greenAccent, width: 2),
         ),
       ),
     );
@@ -208,17 +281,19 @@ class _ListToolScreenState extends State<ListToolScreen> {
 
   Widget _buildDropdownField() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(30),
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           isExpanded: true,
           value: _selectedCategory,
           hint: const Text("Select Category", style: TextStyle(color: Colors.white70)),
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
           dropdownColor: const Color(0xFF203a43),
           items: categories.map((c) {
             return DropdownMenuItem(
@@ -232,6 +307,25 @@ class _ListToolScreenState extends State<ListToolScreen> {
             });
           },
         ),
+      ),
+    );
+  }
+
+  Widget _buildAvailabilitySwitch() {
+    return Card(
+      color: Colors.white.withOpacity(0.08),
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.white10),
+      ),
+      child: SwitchListTile(
+        title: const Text("Available for Rent", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        value: _isAvailable,
+        onChanged: (val) => setState(() => _isAvailable = val),
+        activeColor: Colors.lightGreenAccent,
+        inactiveThumbColor: Colors.grey,
+        inactiveTrackColor: Colors.grey.withOpacity(0.4),
       ),
     );
   }

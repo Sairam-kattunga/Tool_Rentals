@@ -3,8 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/auth_service.dart';
-// Note: You do not need to import specific screens here if you are using named routes.
-// import '../screens/list_tool_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
   }
 
-  // Function to load user data from Firebase
   Future<void> _loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
@@ -42,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Function to handle user logout
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('isLoggedIn');
@@ -52,9 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.pushReplacementNamed(context, '/login');
   }
 
-  // Updated navigation to use named routes
   void _navigateTo(String route) {
-    Navigator.pop(context); // Close the drawer first
+    Navigator.pop(context);
     Navigator.pushNamed(context, route);
   }
 
@@ -97,42 +92,61 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const Icon(Icons.notifications, color: Colors.white, size: 28),
+                      // Profile Icon
+                      InkWell(
+                        onTap: () => Navigator.pushNamed(context, '/profile'),
+                        child: ClipOval(
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            color: Colors.white.withOpacity(0.1),
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Main Action Grid
+                // Main Content Area with new layout
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: GridView.count(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
+                    child: Column(
                       children: [
-                        _buildActionCard(
-                          icon: Icons.handyman,
-                          label: "Rent a Tool",
-                          // ✅ FIXED: Using a named route string
-                          onTap: () => _navigateTo('/rent_tool'),
+                        // Large "My Tools" tile
+                        _buildMainActionCard(
+                          icon: Icons.construction,
+                          label: "My Tools",
+                          onTap: () => _navigateTo('/my_tools'),
                         ),
-                        _buildActionCard(
-                          icon: Icons.add_box,
-                          label: "List a Tool",
-                          onTap: () => _navigateTo('/list_tool'),
+                        const SizedBox(height: 20),
+                        // Row of other actions
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildActionCard(
+                                icon: Icons.handyman,
+                                label: "Rent a Tool",
+                                onTap: () => _navigateTo('/rent_tool'),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildActionCard(
+                                icon: Icons.add_box,
+                                label: "List a Tool",
+                                onTap: () => _navigateTo('/list_tool'),
+                              ),
+                            ),
+                          ],
                         ),
-                        _buildActionCard(
-                          icon: Icons.account_balance_wallet,
-                          label: "Wallet",
-                          onTap: () => _navigateTo('/wallet'),
-                        ),
-                        _buildActionCard(
-                          icon: Icons.history,
-                          label: "History",
-                          onTap: () => _navigateTo('/history'),
-                        ),
+                        // Additional content or a spacer can go here
+                        const Spacer(),
                       ],
                     ),
                   ),
@@ -145,8 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Updated Drawer without user details and logo
-  // Updated Drawer with a new "My Tools" tile
+  // Updated Drawer
   Drawer _buildDrawer() {
     return Drawer(
       child: Container(
@@ -174,10 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             _buildDrawerItem(Icons.home, "Home", () => _navigateTo('/home')),
-            _buildDrawerItem(Icons.person, "Profile", () => _navigateTo('/profile')),
-            _buildDrawerItem(Icons.handyman, "My Tools", () => _navigateTo('/my_tools')), // New tile
-            _buildDrawerItem(Icons.settings, "Settings", () => _navigateTo('/settings')),
-            _buildDrawerItem(Icons.help, "Help / Support", () => _navigateTo('/support')),
+            _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/user_account')),
+            _buildDrawerItem(Icons.settings, "App Settings", () => _navigateTo('/app_settings')),
+            _buildDrawerItem(Icons.policy, "Policies", () => _navigateTo('/policies')),
+
+
+            _buildDrawerItem(Icons.help, "Help & Info", () => _navigateTo('/help_info')),
             const Divider(color: Colors.white24, indent: 16, endIndent: 16),
             _buildDrawerItem(
               Icons.logout,
@@ -191,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Reusable widget for action cards
+  // Reusable widget for a smaller action card
   Widget _buildActionCard({
     required IconData icon,
     required String label,
@@ -201,6 +216,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
+        height: 150, // Added height for consistency
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
@@ -209,15 +225,52 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 50, color: Colors.white),
+            Icon(icon, size: 40, color: Colors.white),
             const SizedBox(height: 12),
             Text(
               label,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // New reusable widget for the main, larger action card
+  Widget _buildMainActionCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        height: 180,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white30),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 60, color: Colors.greenAccent),
+            const SizedBox(height: 16),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],

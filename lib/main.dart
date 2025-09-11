@@ -7,13 +7,14 @@ import 'screens/register_screen.dart';
 import 'screens/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ProfileScreen.dart';
-import 'screens/SettingsScreen.dart';
-import 'screens/SupportScreen.dart';
 import 'screens/list_tool_screen.dart';
 import 'screens/RentToolScreen.dart';
 import 'screens/MyToolsScreen.dart';
-import 'screens/WalletScreen.dart';   // ✅ Import new screens
-import 'screens/HistoryScreen.dart'; // ✅ Import new screens
+
+import 'screens/policies_screen.dart';
+import 'screens/app_settings_screen.dart';
+import 'screens/user_account_screen.dart';
+import 'screens/help_info_screen.dart';
 
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
@@ -51,13 +52,14 @@ class MyApp extends StatelessWidget {
         '/forgot': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
         '/profile': (context) => const ProfileScreen(), // New route for Profile
-        '/settings': (context) => const SettingsScreen(), // New route for Settings
-        '/support': (context) => const SupportScreen(), // New route for Support
         '/list_tool': (context) => const ListToolScreen(),
         '/rent_tool': (context) => const RentToolScreen(),
         '/my_tools': (context) => const MyToolsScreen(),
-        '/wallet': (context) => const WalletScreen(),     // ✅ New route
-        '/history': (context) => const HistoryScreen(),   // ✅ New route
+
+        '/policies': (context) => const PoliciesScreen(),
+        '/app_settings': (context) => const AppSettingsScreen(),
+        '/user_account': (context) => const UserAccountScreen(),
+        '/help_info': (context) => const HelpInfoScreen(),
       },
     );
   }
