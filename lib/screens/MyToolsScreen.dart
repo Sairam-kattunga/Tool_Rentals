@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'edit_tool_screen.dart';
 
 class MyToolsScreen extends StatefulWidget {
@@ -14,7 +14,6 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
   String _searchQuery = "";
   String _sortOption = "Name: A-Z";
 
-  // Function to show the options dialog for a tool
   void _showToolOptionsDialog(BuildContext context, String docId, Map<String, dynamic> toolData) {
     showDialog(
       context: context,
@@ -62,7 +61,6 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
     );
   }
 
-  // Function to confirm and delete a tool
   void _confirmAndDelete(BuildContext context, String docId, String toolName) {
     showDialog(
       context: context,
@@ -112,7 +110,7 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
 
   Future<bool> _handleBackNavigation() async {
     Navigator.pushReplacementNamed(context, '/home');
-    return false; // Prevent default pop
+    return false;
   }
 
   @override
@@ -134,7 +132,6 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () {
-              // Handles AppBar back button
               Navigator.pushReplacementNamed(context, '/home');
             },
           ),
@@ -324,7 +321,7 @@ class _MyToolsScreenState extends State<MyToolsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "\$${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
+                    "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
                     style: const TextStyle(color: Colors.greenAccent, fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Switch(

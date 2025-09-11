@@ -1,14 +1,15 @@
+// category_selection_screen.dart
 import 'package:flutter/material.dart';
 
 class CategorySelectionScreen extends StatefulWidget {
   final List<String> categories;
-  final Map<String, IconData> categoryIcons;
+  final Map<String, String> categoryImages; // Updated: Map category → image path
   final String initialCategory;
 
   const CategorySelectionScreen({
     super.key,
     required this.categories,
-    required this.categoryIcons,
+    required this.categoryImages,
     required this.initialCategory,
   });
 
@@ -52,7 +53,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 crossAxisCount: 2,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
-                childAspectRatio: 1.2,
+                childAspectRatio: 1,
               ),
               itemCount: widget.categories.length,
               itemBuilder: (context, index) {
@@ -68,40 +69,63 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   }
 
   Widget _buildCategoryGridItem(String cat, bool isSelected) {
-    final iconData = widget.categoryIcons[cat] ?? Icons.category;
+    // Corrected fallback image path to match the rest of the app's asset structure
+    final imagePath = widget.categoryImages[cat] ?? "assets/category/miscellaneous.png";
+
     return InkWell(
       onTap: () {
-        // Pop the screen and return the selected category name
-        Navigator.pop(context, cat);
+        Navigator.pop(context, cat); // Return selected category
       },
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected ? Colors.greenAccent.withOpacity(0.2) : Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? Colors.greenAccent : Colors.white24,
-            width: isSelected ? 2.0 : 1.0,
+            width: isSelected ? 3.0 : 1.0,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              iconData,
-              color: isSelected ? Colors.greenAccent : Colors.white,
-              size: 40,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              cat,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isSelected ? Colors.greenAccent : Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
               ),
-            ),
-          ],
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                  ),
+                ),
+              ),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    cat,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isSelected ? Colors.greenAccent : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      shadows: [
+                        Shadow(
+                          blurRadius: 6,
+                          color: Colors.black,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

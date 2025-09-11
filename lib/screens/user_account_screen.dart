@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import 'AddressesScreen.dart';
 
 class UserAccountScreen extends StatefulWidget {
   const UserAccountScreen({super.key});
@@ -31,7 +32,7 @@ class _UserAccountScreenState extends State<UserAccountScreen> {
   void _handleAddresses() {
     if (_user == null) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (context) => _AddressScreen(user: _user!)),
+      MaterialPageRoute(builder: (context) => const AddressesScreen()),
     );
   }
 
@@ -425,8 +426,11 @@ class _EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<_EditProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
-  final _addressController = TextEditingController();
+  final _contactController = TextEditingController(); // Added
+  String? _selectedAgeRange; // Added
   bool _isLoading = false;
+
+  final List<String> _ageRanges = ['0-18', '19-40', '40+'];
 
   @override
   void initState() {
@@ -437,7 +441,7 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
   @override
   void dispose() {
     _nameController.dispose();
-    _addressController.dispose();
+    _contactController.dispose();
     super.dispose();
   }
 
@@ -450,7 +454,9 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       if (doc.exists) {
         var userData = doc.data() as Map<String, dynamic>;
         _nameController.text = userData['name'] ?? '';
-        _addressController.text = userData['address'] ?? '';
+        _contactController.text = userData['contact'] ?? '';
+        _selectedAgeRange = userData['age'];
+        setState(() {}); // Refresh UI with loaded data
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -472,7 +478,8 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
           .doc(widget.user.uid)
           .update({
         'name': _nameController.text.trim(),
-        'address': _addressController.text.trim(),
+        'contact': _contactController.text.trim(),
+        'age': _selectedAgeRange,
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -525,12 +532,18 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
                 ),
                 const SizedBox(height: 20),
                 _buildTextField(
-                  controller: _addressController,
-                  hint: "Address",
-                  icon: Icons.location_on,
-                  validator: (val) =>
-                  val!.isEmpty ? "Address cannot be empty" : null,
+                  controller: _contactController,
+                  hint: "Contact Number",
+                  icon: Icons.phone,
+                  keyboard: TextInputType.phone,
+                  validator: (val) {
+                    if (val!.isEmpty) return "Contact number cannot be empty";
+                    if (val.trim().length != 10) return "Number must be 10 digits";
+                    return null;
+                  },
                 ),
+                const SizedBox(height: 20),
+                _buildAgeDropdown(),
                 const SizedBox(height: 40),
                 _isLoading
                     ? const Center(
@@ -564,11 +577,13 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
     required String hint,
     required IconData icon,
     String? Function(String?)? validator,
+    TextInputType keyboard = TextInputType.text,
   }) {
     return TextFormField(
       controller: controller,
       validator: validator,
       style: const TextStyle(color: Colors.white),
+      keyboardType: keyboard,
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white70),
@@ -582,39 +597,39 @@ class _EditProfileScreenState extends State<_EditProfileScreen> {
       ),
     );
   }
-}
 
-// =========================================================================
-// NEW: Addresses Screen (placeholder)
-// =========================================================================
-class _AddressScreen extends StatelessWidget {
-  final User user;
-  const _AddressScreen({required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Addresses",
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: const Color(0xFF203a43),
-        iconTheme: const IconThemeData(color: Colors.white),
+  Widget _buildAgeDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(30),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+      child: DropdownButtonFormField<String>(
+        value: _selectedAgeRange,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          hintText: "Age Range",
+          hintStyle: TextStyle(color: Colors.white70),
+          prefixIcon: Icon(Icons.cake, color: Colors.white70),
+          border: InputBorder.none,
         ),
-        child: const Center(
-          child: Text(
-            "This is the Addresses screen. You can implement adding/editing multiple addresses here.",
-            style: TextStyle(color: Colors.white70, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-        ),
+        dropdownColor: const Color(0xFF2c5364),
+        style: const TextStyle(color: Colors.white),
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+        items: _ageRanges.map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+        onChanged: (String? newValue) {
+          setState(() {
+            _selectedAgeRange = newValue;
+          });
+        },
+        validator: (value) =>
+        value == null ? "Please select an age range" : null,
       ),
     );
   }

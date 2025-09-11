@@ -1,17 +1,25 @@
-// tool_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ToolDetailScreen extends StatelessWidget {
   final Map<String, dynamic> toolData;
+  final Map<String, String> categoryImages; // pass category → image map
 
-  const ToolDetailScreen({super.key, required this.toolData});
+  const ToolDetailScreen({
+    super.key,
+    required this.toolData,
+    required this.categoryImages,
+  });
 
   @override
   Widget build(BuildContext context) {
     final bool isAvailable = toolData["available"] ?? false;
     final String city = toolData["city"] ?? "N/A";
     final String locationLink = toolData["location"] ?? "N/A";
+    final String category = toolData["category"] ?? "Miscellaneous";
+    final String headerImage =
+    // Corrected fallback image path to match the asset structure
+    categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
 
     return Scaffold(
       appBar: AppBar(
@@ -35,97 +43,139 @@ class ToolDetailScreen extends StatelessWidget {
             ),
           ),
           SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Tool Name and Status
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 🔹 Header Image with overlay
+                Stack(
                   children: [
-                    Flexible(
-                      child: Text(
-                        toolData["name"] ?? "Tool",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+                    Image.asset(
+                      headerImage,
+                      height: 220,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                    Container(
+                      height: 220,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.black.withOpacity(0.6),
+                            Colors.transparent
+                          ],
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
                         ),
                       ),
                     ),
-                    Text(
-                      isAvailable ? "Available" : "Not Available",
-                      style: TextStyle(
-                        color: isAvailable ? Colors.greenAccent : Colors.redAccent,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                    Positioned(
+                      left: 16,
+                      bottom: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            toolData["name"] ?? "Tool",
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            isAvailable ? "Available" : "Not Available",
+                            style: TextStyle(
+                              color: isAvailable
+                                  ? Colors.greenAccent
+                                  : Colors.redAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
 
-                // Price
-                Text(
-                  "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
-                  style: const TextStyle(
-                    color: Colors.green,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
+                // 🔹 Details Section
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Price
+                      Text(
+                        "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Location Section
+                      _buildInfoRow(
+                        icon: Icons.location_on,
+                        label: "Location",
+                        value: city,
+                      ),
+                      if (locationLink != "N/A")
+                        TextButton.icon(
+                          onPressed: () async {
+                            final Uri uri = Uri.parse(locationLink);
+                            try {
+                              if (!await launchUrl(uri)) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Could not open map.')),
+                                );
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content: Text('An error occurred.')),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.map, color: Colors.blueAccent),
+                          label: const Text(
+                            "View on Maps",
+                            style: TextStyle(
+                                color: Colors.blueAccent, fontSize: 16),
+                          ),
+                        ),
+
+                      const SizedBox(height: 20),
+
+                      // Category Section
+                      _buildInfoRow(
+                        icon: Icons.category,
+                        label: "Category",
+                        value: category,
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // Description Section
+                      const Text(
+                        "Description",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        toolData["description"] ??
+                            "No description available for this tool.",
+                        style: const TextStyle(
+                            color: Colors.white70, fontSize: 16),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 20),
-
-                // Location Section
-                _buildInfoRow(
-                  icon: Icons.location_on,
-                  label: "Location",
-                  value: city,
-                ),
-                if (locationLink != "N/A")
-                  TextButton.icon(
-                    onPressed: () async {
-                      final Uri uri = Uri.parse(locationLink);
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
-                      } else {
-                        // ignore: use_build_context_synchronously
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Could not open map.')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.map, color: Colors.blueAccent),
-                    label: const Text(
-                      "View on Maps",
-                      style: TextStyle(color: Colors.blueAccent, fontSize: 16),
-                    ),
-                  ),
-
-                const SizedBox(height: 20),
-
-                // Category Section
-                _buildInfoRow(
-                  icon: Icons.category,
-                  label: "Category",
-                  value: toolData["category"] ?? "N/A",
-                ),
-
-                const SizedBox(height: 20),
-
-                // Description Section
-                const Text(
-                  "Description",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  toolData["description"] ?? "No description available for this tool.",
-                  style: const TextStyle(color: Colors.white70, fontSize: 16),
                 ),
               ],
             ),
@@ -139,21 +189,28 @@ class ToolDetailScreen extends StatelessWidget {
           children: [
             Expanded(
               child: ElevatedButton(
-                onPressed: isAvailable ? () {
-                  // TODO: Implement the Rent Now logic (e.g., navigate to a booking screen)
+                onPressed: isAvailable
+                    ? () {
+                  // TODO: Implement booking flow
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Rent Now button pressed!')),
+                    const SnackBar(
+                        content: Text('Rent Now button pressed!')),
                   );
-                } : null,
+                }
+                    : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                  foregroundColor: isAvailable ? Colors.black : Colors.white,
+                  backgroundColor:
+                  isAvailable ? Colors.greenAccent : Colors.grey,
+                  foregroundColor:
+                  isAvailable ? Colors.black : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30)),
                 ),
                 child: Text(
                   isAvailable ? "Rent Now" : "Not Available",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -163,7 +220,11 @@ class ToolDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoRow({required IconData icon, required String label, required String value}) {
+  Widget _buildInfoRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

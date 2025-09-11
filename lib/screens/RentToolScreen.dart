@@ -22,21 +22,23 @@ class _RentToolScreenState extends State<RentToolScreen> {
     "Heavy Machinery", "Miscellaneous"
   ];
 
-  final Map<String, IconData> _categoryIcons = {
-    "All": Icons.apps,
-    "Home & Garden": Icons.home_filled,
-    "Automotive": Icons.directions_car,
-    "Electronics": Icons.devices,
-    "Construction": Icons.construction,
-    "Events": Icons.celebration,
-    "Sports & Outdoors": Icons.directions_bike,
-    "Medical & Health": Icons.medical_services,
-    "Office": Icons.business_center,
-    "Photography & Video": Icons.camera_alt,
-    "Musical Instruments": Icons.piano,
-    "Party Supplies": Icons.emoji_events,
-    "Heavy Machinery": Icons.engineering,
-    "Miscellaneous": Icons.category,
+  /// Map each category to its corresponding local image
+  final Map<String, String> _categoryImages = {
+    // All paths have been corrected to start with 'lib/assets/Categories/'
+    "Home & Garden": "lib/assets/Categories/Home_Garden.png",
+    "Automotive": "lib/assets/Categories/Automotive.png",
+    "Electronics": "lib/assets/Categories/Electronics.png",
+    "Construction": "lib/assets/Categories/Construction.png",
+    "Events": "lib/assets/Categories/Events.png",
+    "Sports & Outdoors": "lib/assets/Categories/Sports_Outdoors.png",
+    "Medical & Health": "lib/assets/Categories/Medical_Health.png",
+    "Office": "lib/assets/Categories/Office.png",
+    "Photography & Video": "lib/assets/Categories/Photography_video.png",
+    "Musical Instruments": "lib/assets/Categories/Musical_Instruments.png",
+    "Party Supplies": "lib/assets/Categories/Party_Supplies.png",
+    "Heavy Machinery": "lib/assets/Categories/Heavy_Machinary.png",
+    "Miscellaneous": "lib/assets/Categories/Miscellaneous.png",
+    "All": "lib/assets/Categories/All.png",
   };
 
   @override
@@ -156,7 +158,7 @@ class _RentToolScreenState extends State<RentToolScreen> {
                             crossAxisCount: 2,
                             crossAxisSpacing: 16,
                             mainAxisSpacing: 16,
-                            childAspectRatio: 0.8,
+                            childAspectRatio: 0.7,
                           ),
                           itemCount: tools.length,
                           itemBuilder: (context, index) {
@@ -189,7 +191,7 @@ class _RentToolScreenState extends State<RentToolScreen> {
                   MaterialPageRoute(
                     builder: (context) => CategorySelectionScreen(
                       categories: categories,
-                      categoryIcons: _categoryIcons,
+                      categoryImages: _categoryImages,
                       initialCategory: _selectedCategory,
                     ),
                   ),
@@ -200,7 +202,7 @@ class _RentToolScreenState extends State<RentToolScreen> {
                   });
                 }
               },
-              icon: Icon(_categoryIcons[_selectedCategory] ?? Icons.category, color: Colors.white),
+              icon: const Icon(Icons.category, color: Colors.white),
               label: Text(
                 _selectedCategory,
                 style: const TextStyle(color: Colors.white, overflow: TextOverflow.ellipsis),
@@ -256,19 +258,19 @@ class _RentToolScreenState extends State<RentToolScreen> {
   Widget _buildToolGridItem(BuildContext context, Map<String, dynamic> toolData) {
     final bool isAvailable = toolData["available"] ?? false;
     final String category = toolData["category"] ?? "Miscellaneous";
-    final IconData categoryIcon = _categoryIcons[category] ?? Icons.category;
+    // Corrected fallback image path to use the new path
+    final String imagePath = _categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
 
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ToolDetailScreen(toolData: toolData),
+            builder: (context) => ToolDetailScreen(toolData: toolData, categoryImages: _categoryImages),
           ),
         );
       },
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(16),
@@ -277,30 +279,18 @@ class _RentToolScreenState extends State<RentToolScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Align(
-              alignment: Alignment.topRight,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isAvailable ? Colors.green.withOpacity(0.2) : Colors.red.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isAvailable ? "Available" : "Not Available",
-                  style: TextStyle(
-                    color: isAvailable ? Colors.green : Colors.red,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
+            /// Category Image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.asset(
+                imagePath,
+                height: 100,
+                width: double.infinity,
+                fit: BoxFit.cover,
               ),
             ),
-            const SizedBox(height: 8),
-            Center(
-              child: Icon(categoryIcon, color: Colors.white, size: 48),
-            ),
-            const SizedBox(height: 12),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.all(8.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -312,7 +302,7 @@ class _RentToolScreenState extends State<RentToolScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                     overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
+                    maxLines: 1,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -323,28 +313,30 @@ class _RentToolScreenState extends State<RentToolScreen> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ToolDetailScreen(toolData: toolData),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isAvailable
+                          ? () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ToolDetailScreen(toolData: toolData, categoryImages: _categoryImages),
+                          ),
+                        );
+                      }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                        foregroundColor: isAvailable ? Colors.black : Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      ),
+                      child: const Text("Rent"),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                  foregroundColor: isAvailable ? Colors.black : Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                ),
-                child: const Text("Rent"),
+                  ),
+                ],
               ),
             ),
           ],

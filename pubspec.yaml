@@ -40,3 +40,4 @@ flutter:
 
   assets:
     - lib/assets/Logo.png
+    - lib/assets/Categories/

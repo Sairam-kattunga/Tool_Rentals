@@ -16,8 +16,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  final _addressController = TextEditingController(); // New field
-  String? _selectedAgeRange; // New field
+  String? _selectedAgeRange;
 
   final _formKey = GlobalKey<FormState>();
   final AuthService _auth = AuthService();
@@ -33,7 +32,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _addressController.dispose(); // Dispose new controller
     super.dispose();
   }
 
@@ -84,8 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
           "name": _nameController.text.trim(),
           "contact": _contactController.text.trim(),
           "email": _emailController.text.trim(),
-          "address": _addressController.text.trim(), // Save new field
-          "age": _selectedAgeRange, // Save new field
+          "age": _selectedAgeRange,
           "createdAt": FieldValue.serverTimestamp(),
         });
 
@@ -240,11 +237,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         hint: "Email",
                         icon: Icons.email,
                         keyboard: TextInputType.emailAddress),
-                    const SizedBox(height: 20),
-                    _buildTextField(
-                        controller: _addressController,
-                        hint: "Address",
-                        icon: Icons.location_on),
                     const SizedBox(height: 20),
                     _buildAgeDropdown(),
                     const SizedBox(height: 20),

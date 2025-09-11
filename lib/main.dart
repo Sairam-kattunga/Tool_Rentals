@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
         '/register': (context) => const RegisterScreen(),
         '/forgot': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
-        '/profile': (context) => const ProfileScreen(), // New route for Profile
+        '/profile': (context) => const ProfileScreen(),
         '/list_tool': (context) => const ListToolScreen(),
         '/rent_tool': (context) => const RentToolScreen(),
         '/my_tools': (context) => const MyToolsScreen(),
