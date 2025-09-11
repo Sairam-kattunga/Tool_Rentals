@@ -18,8 +18,11 @@ dependencies:
   google_fonts: ^6.3.1
   image_picker: ^1.1.2
   provider: ^6.1.2
+
   shared_preferences: ^2.2.0
   url_launcher: ^6.1.10
+  intl: ^0.18.1 # Or the latest version
+
 
 dev_dependencies:
   flutter_test:

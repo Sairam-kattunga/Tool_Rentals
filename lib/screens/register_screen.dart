@@ -16,6 +16,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _addressController = TextEditingController(); // New field
+  String? _selectedAgeRange; // New field
 
   final _formKey = GlobalKey<FormState>();
   final AuthService _auth = AuthService();
@@ -31,12 +33,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _addressController.dispose(); // Dispose new controller
     super.dispose();
   }
 
   // =================== REGISTER LOGIC ===================
   Future<void> _register() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedAgeRange == null) {
+      _showErrorDialog("Incomplete Form", "Please select an age range.");
       return;
     }
 
@@ -76,21 +84,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
           "name": _nameController.text.trim(),
           "contact": _contactController.text.trim(),
           "email": _emailController.text.trim(),
+          "address": _addressController.text.trim(), // Save new field
+          "age": _selectedAgeRange, // Save new field
           "createdAt": FieldValue.serverTimestamp(),
         });
 
         // Show success dialog
-        await _showSuccessDialog("Registration Successful", "Your account has been created.");
-
+        await _showSuccessDialog(
+            "Registration Successful", "Your account has been created.");
       } else {
         // Registration failed for some reason
-        _showErrorDialog("Registration Failed", "Could not complete registration.");
+        _showErrorDialog(
+            "Registration Failed", "Could not complete registration.");
       }
     } catch (e) {
       // Handle errors from Firebase Auth
       String errorMessage = "An unexpected error occurred.";
       if (e.toString().contains('email-already-in-use')) {
-        errorMessage = "This email is already in use. Please use a different one or login.";
+        errorMessage =
+        "This email is already in use. Please use a different one or login.";
       } else {
         errorMessage = e.toString().replaceFirst("Exception: ", "");
       }
@@ -105,7 +117,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // =================== SUCCESS DIALOG ===================
-  // =================== SUCCESS DIALOG (Simplified and fixed) ===================
   Future<void> _showSuccessDialog(String title, String message) async {
     return showDialog(
       context: context,
@@ -231,6 +242,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         keyboard: TextInputType.emailAddress),
                     const SizedBox(height: 20),
                     _buildTextField(
+                        controller: _addressController,
+                        hint: "Address",
+                        icon: Icons.location_on),
+                    const SizedBox(height: 20),
+                    _buildAgeDropdown(),
+                    const SizedBox(height: 20),
+                    _buildTextField(
                         controller: _passwordController,
                         hint: "Password",
                         icon: Icons.lock,
@@ -310,6 +328,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
       keyboardType: keyboard,
+    );
+  }
+
+  Widget _buildAgeDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: DropdownButtonFormField<String>(
+        value: _selectedAgeRange,
+        isExpanded: true,
+        decoration: const InputDecoration(
+          hintText: "Age Range",
+          hintStyle: TextStyle(color: Colors.white70),
+          prefixIcon: Icon(Icons.cake, color: Colors.white70),
+          border: InputBorder.none,
+        ),
+        dropdownColor: const Color(0xFF2c5364),
+        style: const TextStyle(color: Colors.white),
+        icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+        items: <String>['0-18', '19-40', '40+']
+            .map<DropdownMenuItem<String>>((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+        onChanged: (String? newValue) {
+          setState(() {
+            _selectedAgeRange = newValue;
+          });
+        },
+        validator: (value) =>
+        value == null ? "Please select an age range" : null,
+      ),
     );
   }
 }

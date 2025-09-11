@@ -1,3 +1,4 @@
+// profile_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,6 +17,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _name;
   String? _email;
   String? _contact;
+  String? _address; // New field
+  String? _age; // New field
 
   @override
   void initState() {
@@ -32,6 +35,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _name = doc.data()?["name"] ?? "User";
           _email = doc.data()?["email"] ?? user.email;
           _contact = doc.data()?["contact"] ?? "N/A";
+          _address = doc.data()?["address"] ?? "N/A"; // Fetch new field
+          _age = doc.data()?["age"] ?? "N/A"; // Fetch new field
         });
       }
     }
@@ -43,7 +48,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await prefs.remove('email');
     await prefs.remove('password');
     await _auth.signOut();
-    Navigator.pushReplacementNamed(context, '/login');
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override
@@ -51,10 +58,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Profile", style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF2c5364), // ✅ Added AppBar background
+        backgroundColor: const Color(0xFF2c5364),
         elevation: 0,
         centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white), // ✅ Made back button visible
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -76,10 +83,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   CircleAvatar(
                     radius: 70,
                     backgroundColor: Colors.white,
-                    child: Image.asset(
-                      "lib/assets/Logo.png",
-                      width: 100,
-                      height: 100,
+                    child: ClipOval(
+                      child: Image.asset(
+                        "lib/assets/Logo.png",
+                        width: 100,
+                        height: 100,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -137,6 +147,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               icon: Icons.phone_outlined,
               label: "Contact",
               value: _contact ?? "Loading..."),
+          const SizedBox(height: 16),
+          _buildDetailRow(
+              icon: Icons.location_on_outlined,
+              label: "Address",
+              value: _address ?? "Loading..."),
+          const SizedBox(height: 16),
+          _buildDetailRow(
+              icon: Icons.cake_outlined,
+              label: "Age",
+              value: _age ?? "Loading..."),
         ],
       ),
     );
@@ -166,7 +186,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 4),
         Padding(
           padding: const EdgeInsets.only(left: 28.0),
-          child: SingleChildScrollView( // ✅ Added SingleChildScrollView to prevent text wrapping
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Text(
               value,
