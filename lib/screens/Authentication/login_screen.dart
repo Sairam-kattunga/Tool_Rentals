@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../widgets/animated_button.dart';
-import '../services/auth_service.dart';
+import 'package:tool_rental_app/widgets/animated_button.dart';
+import 'package:tool_rental_app/services/auth_service.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 

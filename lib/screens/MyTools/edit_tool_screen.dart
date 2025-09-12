@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../widgets/animated_button.dart';
+import 'package:tool_rental_app/widgets/animated_button.dart';
 
 class EditToolScreen extends StatefulWidget {
   final String docId;

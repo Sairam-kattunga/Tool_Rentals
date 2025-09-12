@@ -17,11 +17,51 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _name;
   String? _email;
   String? _contact;
+  final PageController _pageController = PageController(initialPage: 1);
+
+  final List<String> _adImages = [
+    'lib/assets/ads/ad1.png',
+    'lib/assets/ads/ad2.png',
+    'lib/assets/ads/ad3.png',
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startAutoScroll();
+    });
+  }
+
+  void _startAutoScroll() {
+    Future.delayed(const Duration(seconds: 3)).then((_) {
+      if (!_pageController.hasClients) return;
+
+      final int currentPage = _pageController.page!.round();
+      final int lastPage = _adImages.length;
+      int nextPage;
+
+      if (currentPage == lastPage) {
+        nextPage = 1;
+        _pageController.jumpToPage(nextPage);
+      } else {
+        nextPage = currentPage + 1;
+        _pageController.animateToPage(
+          nextPage,
+          duration: const Duration(milliseconds: 800),
+          curve: Curves.easeIn,
+        );
+      }
+
+      _startAutoScroll();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -55,12 +95,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final virtualAdImages = [
+      _adImages.last,
+      ..._adImages,
+      _adImages.first,
+    ];
+
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildDrawer(),
       body: Stack(
         children: [
-          // Background Gradient
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -72,9 +117,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           SafeArea(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // AppBar with Hamburger
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10),
                   child: Row(
@@ -92,7 +136,6 @@ class _HomeScreenState extends State<HomeScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      // Profile Icon
                       InkWell(
                         onTap: () => Navigator.pushNamed(context, '/profile'),
                         child: ClipOval(
@@ -111,42 +154,79 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-
-                // Main Content Area with new layout
+                SizedBox(
+                  height: 200,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: virtualAdImages.length,
+                    onPageChanged: (index) {
+                      if (index == 0) {
+                        _pageController.jumpToPage(_adImages.length);
+                      } else if (index == virtualAdImages.length - 1) {
+                        _pageController.jumpToPage(1);
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      final imageIndex = index % _adImages.length;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(20),
+                          child: Image.asset(
+                            _adImages[imageIndex],
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 20),
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Large "My Tools" tile
-                        _buildMainActionCard(
-                          icon: Icons.construction,
-                          label: "My Tools",
-                          onTap: () => _navigateTo('/my_tools'),
+                        const Text(
+                          "Dashboard",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        const SizedBox(height: 20),
-                        // Row of other actions
-                        Row(
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          shrinkWrap: true,
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.2,
+                          physics: const NeverScrollableScrollPhysics(),
                           children: [
-                            Expanded(
-                              child: _buildActionCard(
-                                icon: Icons.handyman,
-                                label: "Rent a Tool",
-                                onTap: () => _navigateTo('/rent_tool'),
-                              ),
+                            _buildActionCard(
+                              icon: Icons.handyman,
+                              label: "Rent a Tool",
+                              onTap: () => _navigateTo('/rent_tool'),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: _buildActionCard(
-                                icon: Icons.add_box,
-                                label: "List a Tool",
-                                onTap: () => _navigateTo('/list_tool'),
-                              ),
+                            _buildActionCard(
+                              icon: Icons.add_box,
+                              label: "List a Tool",
+                              onTap: () => _navigateTo('/list_tool'),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.construction,
+                              label: "My Tools",
+                              onTap: () => _navigateTo('/my_tools'),
+                            ),
+                            _buildActionCard(
+                              icon: Icons.history,
+                              label: "My Rentals",
+                              onTap: () => _navigateTo('/my_rentals'),
                             ),
                           ],
                         ),
-                        // Additional content or a spacer can go here
-                        const Spacer(),
                       ],
                     ),
                   ),
@@ -159,7 +239,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Updated Drawer
   Drawer _buildDrawer() {
     return Drawer(
       child: Container(
@@ -190,9 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/user_account')),
             _buildDrawerItem(Icons.settings, "App Settings", () => _navigateTo('/app_settings')),
             _buildDrawerItem(Icons.policy, "Policies", () => _navigateTo('/policies')),
-
-
             _buildDrawerItem(Icons.help, "Help & Info", () => _navigateTo('/help_info')),
+            _buildDrawerItem(Icons.history, "My Rentals", () => _navigateTo('/my_rentals')),
             const Divider(color: Colors.white24, indent: 16, endIndent: 16),
             _buildDrawerItem(
               Icons.logout,
@@ -206,7 +284,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // Reusable widget for a smaller action card
   Widget _buildActionCard({
     required IconData icon,
     required String label,
@@ -216,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        height: 150, // Added height for consistency
+        height: 150,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.1),
           borderRadius: BorderRadius.circular(20),
@@ -242,44 +319,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // New reusable widget for the main, larger action card
-  Widget _buildMainActionCard({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        height: 180,
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white30),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 60, color: Colors.greenAccent),
-            const SizedBox(height: 16),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // Reusable widget for drawer items
   Widget _buildDrawerItem(IconData icon, String title, VoidCallback onTap, {Color color = Colors.white}) {
     return ListTile(
       leading: Icon(icon, color: color),

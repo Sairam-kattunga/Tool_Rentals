@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'screens/login_screen.dart';
-import 'screens/register_screen.dart';
-import 'screens/forgot_password_screen.dart';
+import 'screens/Authentication/login_screen.dart';
+import 'screens/Authentication/register_screen.dart';
+import 'screens/Authentication/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ProfileScreen.dart';
-import 'screens/list_tool_screen.dart';
-import 'screens/RentToolScreen.dart';
-import 'screens/MyToolsScreen.dart';
+import 'screens/Listing/list_tool_screen.dart';
+import 'screens/RentTool/RentToolScreen.dart';
+import 'screens/MyTools/MyToolsScreen.dart';
+import 'screens/MyRentals/MyRentalsScreen.dart';
 
-import 'screens/policies_screen.dart';
-import 'screens/app_settings_screen.dart';
-import 'screens/user_account_screen.dart';
-import 'screens/help_info_screen.dart';
+import 'screens/Policies/policies_screen.dart';
+import 'screens/AppSettings/app_settings_screen.dart';
+import 'screens/UserAccount/user_account_screen.dart';
+import 'screens/HelpInfo/help_info_screen.dart';
 
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
@@ -60,6 +61,7 @@ class MyApp extends StatelessWidget {
         '/app_settings': (context) => const AppSettingsScreen(),
         '/user_account': (context) => const UserAccountScreen(),
         '/help_info': (context) => const HelpInfoScreen(),
+        '/my_rentals': (context) => const MyRentalsScreen(), // New route'
       },
     );
   }

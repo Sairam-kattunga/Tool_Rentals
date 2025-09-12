@@ -24,7 +24,6 @@ class _RentToolScreenState extends State<RentToolScreen> {
 
   /// Map each category to its corresponding local image
   final Map<String, String> _categoryImages = {
-    // All paths have been corrected to start with 'lib/assets/Categories/'
     "Home & Garden": "lib/assets/Categories/Home_Garden.png",
     "Automotive": "lib/assets/Categories/Automotive.png",
     "Electronics": "lib/assets/Categories/Electronics.png",
@@ -41,12 +40,19 @@ class _RentToolScreenState extends State<RentToolScreen> {
     "All": "lib/assets/Categories/All.png",
   };
 
+  // Helper method to determine if the search query is a potential Firestore docId
+  bool _isPotentialDocId(String query) {
+    // A heuristic: Firestore IDs are 20 characters long and alphanumeric.
+    return query.length >= 15 && query.length <= 30 && RegExp(r'^[a-zA-Z0-9]+$').hasMatch(query);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) {
+        if (didPop) return;
         Navigator.pushReplacementNamed(context, '/home');
-        return false;
       },
       child: Scaffold(
         appBar: AppBar(
@@ -78,27 +84,41 @@ class _RentToolScreenState extends State<RentToolScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-                    child: TextField(
-                      onChanged: (value) => setState(() => _searchQuery = value.toLowerCase()),
-                      decoration: InputDecoration(
-                        hintText: "Search tools...",
-                        hintStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(Icons.search, color: Colors.white),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            onChanged: (value) {
+                              setState(() {
+                                _searchQuery = value.toLowerCase();
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: "Search by name or tool ID...",
+                              hintStyle: const TextStyle(color: Colors.white70),
+                              prefixIcon: const Icon(Icons.search, color: Colors.white),
+                              filled: true,
+                              fillColor: Colors.white.withOpacity(0.1),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                            style: const TextStyle(color: Colors.white),
+                          ),
                         ),
-                      ),
-                      style: const TextStyle(color: Colors.white),
+                        const SizedBox(width: 10),
+                        _buildSortButton(),
+                      ],
                     ),
                   ),
-                  _buildCategoryAndSortBar(),
+                  _buildCategoryFilter(),
                   const SizedBox(height: 10),
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance.collection("tools").snapshots(),
+                      stream: _isPotentialDocId(_searchQuery)
+                          ? FirebaseFirestore.instance.collection("tools").where(FieldPath.documentId, isEqualTo: _searchQuery).snapshots()
+                          : FirebaseFirestore.instance.collection("tools").snapshots(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator(color: Colors.white));
@@ -118,11 +138,23 @@ class _RentToolScreenState extends State<RentToolScreen> {
                         }
 
                         var tools = snapshot.data!.docs.where((doc) {
+                          if (_isPotentialDocId(_searchQuery)) {
+                            // If searching by ID, the Firestore query handles the filtering.
+                            // We only apply the category filter in case the ID search is combined with it.
+                            final data = doc.data() as Map<String, dynamic>;
+                            final category = (data["category"] ?? "").toString().toLowerCase();
+                            final categoryMatch = _selectedCategory == "All" || category == _selectedCategory.toLowerCase();
+                            return categoryMatch;
+                          }
+
+                          // For general searches, apply both category and keyword filters.
                           final data = doc.data() as Map<String, dynamic>;
                           final name = (data["name"] ?? "").toString().toLowerCase();
                           final category = (data["category"] ?? "").toString().toLowerCase();
+
                           final categoryMatch = _selectedCategory == "All" || category == _selectedCategory.toLowerCase();
                           final searchMatch = name.contains(_searchQuery) || category.contains(_searchQuery);
+
                           return categoryMatch && searchMatch;
                         }).toList();
 
@@ -162,8 +194,10 @@ class _RentToolScreenState extends State<RentToolScreen> {
                           ),
                           itemCount: tools.length,
                           itemBuilder: (context, index) {
-                            final toolData = tools[index].data() as Map<String, dynamic>;
-                            return _buildToolGridItem(context, toolData);
+                            final toolDoc = tools[index];
+                            final toolData = toolDoc.data() as Map<String, dynamic>;
+                            final docId = toolDoc.id;
+                            return _buildToolGridItem(context, toolData, docId);
                           },
                         );
                       },
@@ -178,47 +212,48 @@ class _RentToolScreenState extends State<RentToolScreen> {
     );
   }
 
-  Widget _buildCategoryAndSortBar() {
+  Widget _buildCategoryFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                final selected = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CategorySelectionScreen(
-                      categories: categories,
-                      categoryImages: _categoryImages,
-                      initialCategory: _selectedCategory,
-                    ),
-                  ),
-                );
-                if (selected != null && selected is String) {
-                  setState(() {
-                    _selectedCategory = selected;
-                  });
-                }
-              },
-              icon: const Icon(Icons.category, color: Colors.white),
-              label: Text(
-                _selectedCategory,
-                style: const TextStyle(color: Colors.white, overflow: TextOverflow.ellipsis),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white.withOpacity(0.1),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
+      child: InkWell(
+        onTap: () async {
+          final selected = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => CategorySelectionScreen(
+                categories: categories,
+                categoryImages: _categoryImages,
+                initialCategory: _selectedCategory,
               ),
             ),
+          );
+          if (selected != null && selected is String) {
+            setState(() {
+              _selectedCategory = selected;
+            });
+          }
+        },
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
           ),
-          const SizedBox(width: 10),
-          _buildSortButton(),
-        ],
+          child: Row(
+            children: [
+              const Icon(Icons.category, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _selectedCategory,
+                  style: const TextStyle(color: Colors.white, overflow: TextOverflow.ellipsis),
+                ),
+              ),
+              const Icon(Icons.arrow_drop_down, color: Colors.white),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -255,10 +290,9 @@ class _RentToolScreenState extends State<RentToolScreen> {
     );
   }
 
-  Widget _buildToolGridItem(BuildContext context, Map<String, dynamic> toolData) {
+  Widget _buildToolGridItem(BuildContext context, Map<String, dynamic> toolData, String docId) {
     final bool isAvailable = toolData["available"] ?? false;
     final String category = toolData["category"] ?? "Miscellaneous";
-    // Corrected fallback image path to use the new path
     final String imagePath = _categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
 
     return InkWell(
@@ -266,7 +300,11 @@ class _RentToolScreenState extends State<RentToolScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ToolDetailScreen(toolData: toolData, categoryImages: _categoryImages),
+            builder: (context) => ToolDetailScreen(
+              toolData: toolData,
+              docId: docId,
+              categoryImages: _categoryImages,
+            ),
           ),
         );
       },
@@ -277,9 +315,8 @@ class _RentToolScreenState extends State<RentToolScreen> {
           border: Border.all(color: Colors.white24),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            /// Category Image
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
               child: Image.asset(
@@ -289,54 +326,65 @@ class _RentToolScreenState extends State<RentToolScreen> {
                 fit: BoxFit.cover,
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    toolData["name"] ?? "Tool",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isAvailable
-                          ? () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ToolDetailScreen(toolData: toolData, categoryImages: _categoryImages),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          toolData["name"] ?? "Tool",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
                           ),
-                        );
-                      }
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                        foregroundColor: isAvailable ? Colors.black : Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      ),
-                      child: const Text("Rent"),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isAvailable
+                            ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ToolDetailScreen(
+                                toolData: toolData,
+                                docId: docId,
+                                categoryImages: _categoryImages,
+                              ),
+                            ),
+                          );
+                        }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                          foregroundColor: isAvailable ? Colors.black : Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: Text(isAvailable ? "Rent" : "Unavailable"),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],

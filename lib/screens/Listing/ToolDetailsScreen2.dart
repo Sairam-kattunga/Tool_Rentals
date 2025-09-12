@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'SelectAddressScreen3.dart'; // Import the next screen
-import '../widgets/animated_button.dart';
+import 'package:tool_rental_app/widgets/animated_button.dart';
+
 
 class ToolDetailsScreen extends StatefulWidget {
   final String selectedCategory;
