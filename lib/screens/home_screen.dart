@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tool_rental_app/screens/ToolPackage/tool_packages_screen.dart';
+import 'package:tool_rental_app/screens/Listing/listing_choice_screen.dart';
 import '../services/auth_service.dart';
+import 'dart:async';
+import 'package:tool_rental_app/screens/Vehicles/vehicle_rental_screen.dart'; // NEW IMPORT
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,7 +21,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _name;
   String? _email;
   String? _contact;
-  final PageController _pageController = PageController(initialPage: 1);
+  final PageController _pageController = PageController();
 
   final List<String> _adImages = [
     'lib/assets/ads/ad1.png',
@@ -29,32 +33,22 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startAutoScroll();
-    });
+    _startAutoScroll();
   }
 
   void _startAutoScroll() {
-    Future.delayed(const Duration(seconds: 3)).then((_) {
-      if (!_pageController.hasClients) return;
-
-      final int currentPage = _pageController.page!.round();
-      final int lastPage = _adImages.length;
-      int nextPage;
-
-      if (currentPage == lastPage) {
-        nextPage = 1;
-        _pageController.jumpToPage(nextPage);
-      } else {
-        nextPage = currentPage + 1;
-        _pageController.animateToPage(
-          nextPage,
-          duration: const Duration(milliseconds: 800),
-          curve: Curves.easeIn,
-        );
+    Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!_pageController.hasClients) {
+        timer.cancel();
+        return;
       }
-
-      _startAutoScroll();
+      final int currentPage = _pageController.page!.round();
+      final int nextPage = currentPage + 1;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeIn,
+      );
     });
   }
 
@@ -85,22 +79,43 @@ class _HomeScreenState extends State<HomeScreen> {
     await prefs.remove('email');
     await prefs.remove('password');
     await _auth.signOut();
-    Navigator.pushReplacementNamed(context, '/login');
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   void _navigateTo(String route) {
-    Navigator.pop(context);
-    Navigator.pushNamed(context, route);
+    if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      Navigator.pop(context);
+    }
+    // Handle specific routes
+    switch (route) {
+      case '/rent_tool':
+        Navigator.of(context).pushNamed('/rent_tool');
+        break;
+      case '/list_choice':
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ListingChoiceScreen()));
+        break;
+      case '/my_tools':
+        Navigator.of(context).pushNamed('/my_tools');
+        break;
+      case '/my_rentals':
+        Navigator.of(context).pushNamed('/my_rentals');
+        break;
+      case '/tool_packages':
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ToolPackagesScreen()));
+        break;
+      case '/vehicle_rentals':
+        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const VehicleRentalScreen()));
+        break;
+      default:
+        Navigator.of(context).pushNamed(route);
+        break;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final virtualAdImages = [
-      _adImages.last,
-      ..._adImages,
-      _adImages.first,
-    ];
-
     return Scaffold(
       key: _scaffoldKey,
       drawer: _buildDrawer(),
@@ -137,7 +152,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       InkWell(
-                        onTap: () => Navigator.pushNamed(context, '/profile'),
+                        onTap: () => _navigateTo('/profile'),
                         child: ClipOval(
                           child: Container(
                             padding: const EdgeInsets.all(8),
@@ -158,14 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 200,
                   child: PageView.builder(
                     controller: _pageController,
-                    itemCount: virtualAdImages.length,
-                    onPageChanged: (index) {
-                      if (index == 0) {
-                        _pageController.jumpToPage(_adImages.length);
-                      } else if (index == virtualAdImages.length - 1) {
-                        _pageController.jumpToPage(1);
-                      }
-                    },
+                    itemCount: 10000,
                     itemBuilder: (context, index) {
                       final imageIndex = index % _adImages.length;
                       return Padding(
@@ -197,35 +205,65 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        GridView.count(
-                          shrinkWrap: true,
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
-                          childAspectRatio: 1.2,
-                          physics: const NeverScrollableScrollPhysics(),
-                          children: [
-                            _buildActionCard(
-                              icon: Icons.handyman,
-                              label: "Rent a Tool",
-                              onTap: () => _navigateTo('/rent_tool'),
-                            ),
-                            _buildActionCard(
-                              icon: Icons.add_box,
-                              label: "List a Tool",
-                              onTap: () => _navigateTo('/list_tool'),
-                            ),
-                            _buildActionCard(
-                              icon: Icons.construction,
-                              label: "My Tools",
-                              onTap: () => _navigateTo('/my_tools'),
-                            ),
-                            _buildActionCard(
-                              icon: Icons.history,
-                              label: "My Rentals",
-                              onTap: () => _navigateTo('/my_rentals'),
-                            ),
-                          ],
+                        Expanded(
+                          child: GridView.count(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 16,
+                            mainAxisSpacing: 16,
+                            childAspectRatio: 1.2,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _buildActionCard(
+                                icon: Icons.handyman,
+                                label: "Rent a Tool",
+                                onTap: () => _navigateTo('/rent_tool'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.add_box,
+                                label: "List a Tool",
+                                onTap: () => _navigateTo('/list_choice'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFFDC830), Color(0xFFF37335)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.construction,
+                                label: "My Tools",
+                                onTap: () => _navigateTo('/my_tools'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF00B4DB), Color(0xFF0083B0)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.history,
+                                label: "My Rentals",
+                                onTap: () => _navigateTo('/my_rentals'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF38ef7d), Color(0xFF11998e)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.local_mall,
+                                label: "Tool Packages",
+                                onTap: () => _navigateTo('/tool_packages'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFD66D75), Color(0xFFE29587)],
+                                ),
+                              ),
+                              // NEW VEHICLE RENTALS CARD
+                              _buildActionCard(
+                                icon: Icons.directions_car,
+                                label: "Vehicle Rentals",
+                                onTap: () => _navigateTo('/vehicle_rentals'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFC04848), Color(0xFF480048)],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -266,11 +304,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             _buildDrawerItem(Icons.home, "Home", () => _navigateTo('/home')),
-            _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/user_account')),
+            _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/profile')),
             _buildDrawerItem(Icons.settings, "App Settings", () => _navigateTo('/app_settings')),
             _buildDrawerItem(Icons.policy, "Policies", () => _navigateTo('/policies')),
             _buildDrawerItem(Icons.help, "Help & Info", () => _navigateTo('/help_info')),
-            _buildDrawerItem(Icons.history, "My Rentals", () => _navigateTo('/my_rentals')),
             const Divider(color: Colors.white24, indent: 16, endIndent: 16),
             _buildDrawerItem(
               Icons.logout,
@@ -288,6 +325,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    required LinearGradient gradient,
   }) {
     return InkWell(
       onTap: onTap,
@@ -302,7 +340,12 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 40, color: Colors.white),
+            ShaderMask(
+              shaderCallback: (Rect bounds) {
+                return gradient.createShader(bounds);
+              },
+              child: Icon(icon, size: 40, color: Colors.white),
+            ),
             const SizedBox(height: 12),
             Text(
               label,

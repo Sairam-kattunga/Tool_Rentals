@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
-import 'ToolDetailsScreen2.dart'; // This is the file for entering tool details
+// lib/screens/ToolPackage/list_package_category_screen.dart
 
-class ListToolScreen extends StatefulWidget {
-  const ListToolScreen({super.key});
+import 'package:flutter/material.dart';
+import 'package:tool_rental_app/screens/Listing/list_package_screen.dart';
+
+class ListPackageCategoryScreen extends StatefulWidget {
+  const ListPackageCategoryScreen({super.key});
 
   @override
-  State<ListToolScreen> createState() => _ListToolScreenState();
+  State<ListPackageCategoryScreen> createState() => _ListPackageCategoryScreenState();
 }
 
-class _ListToolScreenState extends State<ListToolScreen> {
+class _ListPackageCategoryScreenState extends State<ListPackageCategoryScreen> {
   final List<String> categories = [
     "Home & Garden", "Automotive", "Electronics", "Construction",
     "Events", "Sports & Outdoors", "Medical & Health", "Office",
@@ -36,7 +38,7 @@ class _ListToolScreenState extends State<ListToolScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("List a Tool", style: TextStyle(color: Colors.white)),
+        title: const Text("List a Package", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF203a43),
         foregroundColor: Colors.white,
         leading: IconButton(
@@ -61,7 +63,7 @@ class _ListToolScreenState extends State<ListToolScreen> {
               padding: EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
               child: Center(
                 child: Text(
-                  "Select your tool category",
+                  "Select package category",
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -107,9 +109,10 @@ class _ListToolScreenState extends State<ListToolScreen> {
 
     return InkWell(
       onTap: () {
+        // Navigate to the ListPackageScreen, passing the selected category
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (context) => ToolDetailsScreen(selectedCategory: category),
+            builder: (context) => ListPackageScreen(selectedCategory: category),
           ),
         );
       },

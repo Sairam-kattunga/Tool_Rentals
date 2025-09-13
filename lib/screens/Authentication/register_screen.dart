@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tool_rental_app/widgets/animated_button.dart';
 import 'package:tool_rental_app/services/auth_service.dart';
+import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -24,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _isProcessing = false;
   String _buttonText = "Register";
+  bool _agreedToTerms = false; // New state for the checkbox
 
   @override
   void dispose() {
@@ -46,6 +49,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // New check for terms and conditions
+    if (!_agreedToTerms) {
+      _showErrorDialog("Agreement Required", "You must agree to the terms and conditions.");
+      return;
+    }
+
     // Password and phone number checks
     if (_passwordController.text != _confirmPasswordController.text) {
       _showErrorDialog("Password Mismatch", "Passwords do not match.");
@@ -64,7 +73,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      // Start the 4-second delay and the registration process simultaneously
       final registrationFuture = _auth.registerWithEmail(
         _emailController.text.trim(),
         _passwordController.text.trim(),
@@ -72,12 +80,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       final delayFuture = Future.delayed(const Duration(seconds: 4));
 
-      // Wait for both the registration and the delay to complete
       final result = await Future.wait([registrationFuture, delayFuture]);
       final user = result[0];
 
       if (user != null) {
-        // Registration successful, now save extra details
         await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
           "name": _nameController.text.trim(),
           "contact": _contactController.text.trim(),
@@ -86,16 +92,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
           "createdAt": FieldValue.serverTimestamp(),
         });
 
-        // Show success dialog
         await _showSuccessDialog(
             "Registration Successful", "Your account has been created.");
       } else {
-        // Registration failed for some reason
         _showErrorDialog(
             "Registration Failed", "Could not complete registration.");
       }
     } catch (e) {
-      // Handle errors from Firebase Auth
       String errorMessage = "An unexpected error occurred.";
       if (e.toString().contains('email-already-in-use')) {
         errorMessage =
@@ -105,7 +108,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
       _showErrorDialog("Registration Failed", errorMessage);
     } finally {
-      // This block always runs, ensuring the state is reset
       setState(() {
         _isProcessing = false;
         _buttonText = "Register";
@@ -256,6 +258,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         toggleObscure: () =>
                             setState(() => _obscurePassword = !_obscurePassword)),
                     const SizedBox(height: 30),
+
+                    // New checkbox for terms and conditions
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: _agreedToTerms,
+                          onChanged: (bool? newValue) {
+                            setState(() {
+                              _agreedToTerms = newValue!;
+                            });
+                          },
+                          activeColor: Colors.greenAccent,
+                        ),
+                        const Expanded(
+                          child: Text(
+                            "I agree to the Terms and Conditions",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
                     AnimatedButton(
                       text: _buttonText,
                       onTap: () {

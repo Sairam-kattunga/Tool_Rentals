@@ -7,15 +7,17 @@ import 'screens/Authentication/register_screen.dart';
 import 'screens/Authentication/forgot_password_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ProfileScreen.dart';
-import 'screens/Listing/list_tool_screen.dart';
 import 'screens/RentTool/RentToolScreen.dart';
 import 'screens/MyTools/MyToolsScreen.dart';
 import 'screens/MyRentals/MyRentalsScreen.dart';
+import 'screens/Listing/listing_choice_screen.dart';
 
 import 'screens/Policies/policies_screen.dart';
 import 'screens/AppSettings/app_settings_screen.dart';
 import 'screens/UserAccount/user_account_screen.dart';
 import 'screens/HelpInfo/help_info_screen.dart';
+import 'screens/HelpInfo/support_form_screen.dart';
+import 'screens/HelpInfo/faq_screen.dart';
 
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
@@ -53,14 +55,16 @@ class MyApp extends StatelessWidget {
         '/forgot': (context) => const ForgotPasswordScreen(),
         '/home': (context) => const HomeScreen(),
         '/profile': (context) => const ProfileScreen(),
-        '/list_tool': (context) => const ListToolScreen(),
         '/rent_tool': (context) => const RentToolScreen(),
         '/my_tools': (context) => const MyToolsScreen(),
+        '/list_choice': (context) => const ListingChoiceScreen(),
 
         '/policies': (context) => const PoliciesScreen(),
         '/app_settings': (context) => const AppSettingsScreen(),
         '/user_account': (context) => const UserAccountScreen(),
         '/help_info': (context) => const HelpInfoScreen(),
+        '/support': (context) => const SupportFormScreen(),
+        '/faq': (context) => const FaqScreen(),
         '/my_rentals': (context) => const MyRentalsScreen(), // New route'
       },
     );

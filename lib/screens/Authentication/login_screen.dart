@@ -20,10 +20,10 @@ class _LoginScreenState extends State<LoginScreen>
   final AuthService _auth = AuthService();
   bool _loading = false;
   bool _obscurePassword = true;
+  bool _showLoginSuccess = false; // New state to control the tick animation position
 
   late AnimationController _tickController;
   late Animation<double> _tickAnimation;
-  bool _showTick = false;
 
   @override
   void initState() {
@@ -72,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() {
       _loading = true;
-      _showTick = false; // Hide success tick for a new attempt
+      _showLoginSuccess = false;
     });
 
     try {
@@ -80,23 +80,22 @@ class _LoginScreenState extends State<LoginScreen>
           _emailController.text, _passwordController.text);
 
       if (user != null) {
-        // Login successful
         _saveLoginSession(_emailController.text, _passwordController.text);
+
         setState(() {
-          _loading = false; // Stop loading
-          _showTick = true; // Show success tick
+          _loading = false;
+          _showLoginSuccess = true;
         });
+
         _tickController.forward();
         await Future.delayed(const Duration(milliseconds: 1000));
         Navigator.pushReplacementNamed(context, '/home');
       } else {
-        // Login failed (e.g., incorrect password)
-        setState(() => _loading = false); // Stop loading
+        setState(() => _loading = false);
         _showErrorDialog("Login Failed", "Invalid email or password.");
       }
     } catch (e) {
-      // Handle any other errors (e.g., network issues)
-      setState(() => _loading = false); // Stop loading
+      setState(() => _loading = false);
       _showErrorDialog("Error", "An unexpected error occurred. Check your login credentials and TRY AGAIN");
     }
   }
@@ -129,7 +128,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Scaffold(
       body: Stack(
         children: [
-          // Background
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -156,7 +154,6 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                     const SizedBox(height: 40),
 
-                    // Email
                     _buildTextField(
                         controller: _emailController,
                         hint: "Email",
@@ -164,7 +161,6 @@ class _LoginScreenState extends State<LoginScreen>
                         autofillHints: const [AutofillHints.username, AutofillHints.email]),
                     const SizedBox(height: 20),
 
-                    // Password
                     _buildTextField(
                         controller: _passwordController,
                         hint: "Password",
@@ -175,12 +171,24 @@ class _LoginScreenState extends State<LoginScreen>
                         autofillHints: const [AutofillHints.password]),
 
                     const SizedBox(height: 30),
-                    _loading
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : AnimatedButton(text: "Login", onTap: _login),
+
+                    // Conditionally display loading, success, or the button
+                    if (_loading)
+                      const CircularProgressIndicator(color: Colors.white)
+                    else if (_showLoginSuccess)
+                      ScaleTransition(
+                        scale: _tickAnimation,
+                        child: const Icon(
+                          Icons.check_circle,
+                          color: Colors.greenAccent,
+                          size: 60,
+                        ),
+                      )
+                    else
+                      AnimatedButton(text: "Login", onTap: _login),
+
                     const SizedBox(height: 20),
 
-                    // Extra
                     TextButton.icon(
                       onPressed: () {
                         Navigator.push(
@@ -205,18 +213,6 @@ class _LoginScreenState extends State<LoginScreen>
                       label: const Text("Don't have an account? Register",
                           style: TextStyle(color: Colors.greenAccent)),
                     ),
-
-                    const SizedBox(height: 30),
-
-                    if (_showTick)
-                      ScaleTransition(
-                        scale: _tickAnimation,
-                        child: const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                          size: 80,
-                        ),
-                      ),
                   ],
                 ),
               ),
