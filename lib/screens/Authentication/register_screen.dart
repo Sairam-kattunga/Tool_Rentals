@@ -121,6 +121,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF203a43), // Set a dark background
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
         content: Column(
@@ -135,12 +136,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white), // Set text color
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
+              style: const TextStyle(color: Colors.white70), // Set text color
               textAlign: TextAlign.center,
             ),
           ],
@@ -151,7 +153,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Navigator.of(ctx).pop();
               Navigator.pushReplacementNamed(context, '/login');
             },
-            child: const Text("Go to Login"),
+            child: const Text("Go to Login", style: TextStyle(color: Colors.white)), // Set button text color
           ),
         ],
       ),
@@ -164,15 +166,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF203a43), // Set a dark background
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(Icons.error, color: Colors.red),
+            const Icon(Icons.error, color: Colors.redAccent), // Use a contrasting icon color
             const SizedBox(width: 8),
-            Text(title),
+            Text(title, style: const TextStyle(color: Colors.white)), // Set text color
           ],
         ),
-        content: Text(message),
+        content: Text(message, style: const TextStyle(color: Colors.white70)), // Set text color
         actions: [
           if (showReset)
             TextButton(
@@ -180,11 +183,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Navigator.of(ctx).pop();
                 Navigator.pushNamed(context, '/forgot-password');
               },
-              child: const Text("Reset Password"),
+              child: const Text("Reset Password", style: TextStyle(color: Colors.white)), // Set button text color
             ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text("OK"),
+            child: const Text("OK", style: TextStyle(color: Colors.white)), // Set button text color
           ),
         ],
       ),
@@ -319,12 +322,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
-      validator: (val) =>
-      val == null || val.isEmpty ? "$hint cannot be empty" : null,
+      validator: (val) {
+        if (val == null || val.isEmpty) {
+          return "$hint cannot be empty";
+        }
+        return null;
+      },
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white70),
+        errorStyle: const TextStyle(color: Colors.redAccent), // Set error text color
         prefixIcon: Icon(icon, color: Colors.white70),
         suffixIcon: toggleObscure != null
             ? IconButton(
@@ -358,10 +366,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       child: DropdownButtonFormField<String>(
         value: _selectedAgeRange,
         isExpanded: true,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           hintText: "Age Range",
-          hintStyle: TextStyle(color: Colors.white70),
-          prefixIcon: Icon(Icons.cake, color: Colors.white70),
+          hintStyle: const TextStyle(color: Colors.white70),
+          errorStyle: const TextStyle(color: Colors.redAccent), // Set error text color
+          prefixIcon: const Icon(Icons.cake, color: Colors.white70),
           border: InputBorder.none,
         ),
         dropdownColor: const Color(0xFF2c5364),

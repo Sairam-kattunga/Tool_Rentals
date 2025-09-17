@@ -19,6 +19,9 @@ dependencies:
   image_picker: ^1.1.2
   provider: ^6.1.2
 
+  lottie: ^3.1.0
+  video_player: ^2.9.2
+
   shared_preferences: ^2.2.0
   url_launcher: ^6.1.10
   intl: ^0.18.1 # Or the latest version
@@ -42,5 +45,7 @@ flutter:
 
   assets:
     - lib/assets/Logo.png
+    - lib/assets/Logo_intro.png
     - lib/assets/Categories/
     - lib/assets/ads/
+    - lib/assets/videos/

@@ -1,10 +1,13 @@
 import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+// Placeholder imports - ensure these files exist
 import 'package:tool_rental_app/screens/RentTool/tool_detail_screen.dart';
 import 'chat_screen.dart';
 
@@ -20,17 +23,16 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     'pending': '1. Request Sent',
     'accepted': '2. Accepted by Owner',
     'collected-renter': '3. Renter Confirmed Collection',
-    'collected': '3. Tool Collected',
+    'collected': '3. Item Collected',
     'returned-renter': '4. Renter Confirmed Return',
     'returned': '4. Owner Confirmed Return',
     'completed': '5. Transaction Completed',
     'rejected': 'Request Rejected',
   };
 
-  late final Stream<DateTime> _ticker;
   final DateFormat _dateFormat = DateFormat.yMMMd().add_jm();
-  final StreamController<void> _updateStream = StreamController.broadcast();
-  int _selectedIndex = 0;
+  int _selectedIndex = 0; // 0 for Active, 1 for History
+  int _historyTabIndex = 0; // 0 for Borrowed, 1 for Shared, 2 for Rejected
 
   final Map<String, String> _categoryImages = {
     "Home & Garden": "lib/assets/Categories/Home_Garden.png",
@@ -49,18 +51,6 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     "All": "lib/assets/Categories/All.png",
   };
 
-  @override
-  void initState() {
-    super.initState();
-    _ticker = Stream<DateTime>.periodic(const Duration(seconds: 1), (_) => DateTime.now()).asBroadcastStream();
-  }
-
-  @override
-  void dispose() {
-    _updateStream.close();
-    super.dispose();
-  }
-
   String formatTimestamp(Timestamp? ts) {
     if (ts == null) return 'N/A';
     try {
@@ -75,18 +65,30 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     return false;
   }
 
-  void _openWhatsApp({required String phoneNumber, required String message}) async {
-    final Uri url = Uri.parse("https://wa.me/$phoneNumber/?text=${Uri.encodeComponent(message)}");
-    if (await canLaunchUrl(url)) {
-      await launchUrl(url);
+  void _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("WhatsApp is not installed.")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Could not launch phone app.")),
+        );
+      }
     }
   }
 
-  void _showTrackingDialog(BuildContext context, String currentStatus, Map<String, dynamic> rentalData, String docId, Map<String, dynamic> toolData) {
+  void _copyToClipboard(BuildContext context, String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("ID copied to clipboard")),
+    );
+  }
+
+  void _showTrackingDialog(BuildContext context, String currentStatus, Map<String, dynamic> rentalData, String docId, Map<String, dynamic> itemData, String itemType) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
@@ -141,6 +143,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
                 FutureBuilder<DocumentSnapshot>(
                   future: FirebaseFirestore.instance.collection('users').doc(rentalData['ownerId'] == FirebaseAuth.instance.currentUser!.uid ? rentalData['renterId'] : rentalData['ownerId']).get(),
                   builder: (context, userSnapshot) {
+                    if (userSnapshot.connectionState == ConnectionState.waiting) return const CircularProgressIndicator();
                     if (!userSnapshot.hasData) return const SizedBox.shrink();
                     final otherUser = userSnapshot.data!.data() as Map<String, dynamic>;
                     final phoneNumber = otherUser['contact'] ?? '';
@@ -148,13 +151,10 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
 
                     return ElevatedButton.icon(
                       onPressed: phoneNumber.isNotEmpty
-                          ? () => _openWhatsApp(
-                        phoneNumber: phoneNumber,
-                        message: isOwner ? "Hi, I'm interested in the tool I rented from you, ${rentalData['toolName']}." : "Hi, I'm the owner of the tool, ${rentalData['toolName']}. Let's chat about the rental.",
-                      )
+                          ? () => _makePhoneCall(phoneNumber)
                           : null,
-                      icon: const Icon(Icons.chat, color: Colors.green),
-                      label: const Text("WhatsApp", style: TextStyle(color: Colors.black)),
+                      icon: const Icon(Icons.phone, color: Colors.green),
+                      label: const Text("Call", style: TextStyle(color: Colors.black)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.greenAccent,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -176,34 +176,40 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
-  void _showCompletedDialog(BuildContext context, Map<String, dynamic> rentalData) {
+  void _showCompletedDialog(BuildContext context, Map<String, dynamic> rentalData, String itemType) {
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
         final isOwner = rentalData['ownerId'] == FirebaseAuth.instance.currentUser!.uid;
+        final itemIdKey = itemType == 'tool' ? 'toolId' : 'packageId';
+        final itemId = rentalData[itemIdKey] ?? 'N/A';
+
         return AlertDialog(
           backgroundColor: const Color(0xFF0b2a33),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(rentalData['toolName'] ?? 'Tool', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Status: ${rentalData['status']?.toUpperCase()}", style: TextStyle(color: Colors.greenAccent)),
-              const SizedBox(height: 8),
-              Text(
-                isOwner
-                    ? "Renter: ${rentalData['renterName'] ?? 'N/A'}"
-                    : "Owner: ${rentalData['ownerName'] ?? 'N/A'}",
-                style: const TextStyle(color: Colors.white70),
-              ),
-              const SizedBox(height: 12),
-              _buildHistoryInfoRow(label: "Requested On", value: formatTimestamp(rentalData['requestDate'])),
-              _buildHistoryInfoRow(label: "Accepted On", value: formatTimestamp(rentalData['responseDate'])),
-              _buildHistoryInfoRow(label: "Collected On", value: formatTimestamp(rentalData['collectedAt'])),
-              _buildHistoryInfoRow(label: "Returned On", value: formatTimestamp(rentalData['returnedAt'])),
-              _buildHistoryInfoRow(label: "Completed On", value: formatTimestamp(rentalData['completedAt'])),
-            ],
+          title: Text(rentalData['itemName'] ?? 'Item', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Status: ${rentalData['status']?.toUpperCase()}", style: const TextStyle(color: Colors.greenAccent)),
+                const SizedBox(height: 8),
+                Text(
+                  isOwner
+                      ? "Renter: ${rentalData['renterName'] ?? 'N/A'}"
+                      : "Owner: ${rentalData['ownerName'] ?? 'N/A'}",
+                  style: const TextStyle(color: Colors.white70),
+                ),
+                const SizedBox(height: 12),
+                _buildHistoryInfoRow(label: "${itemType == 'tool' ? 'Tool' : 'Package'} ID", value: itemId),
+                _buildHistoryInfoRow(label: "Requested On", value: formatTimestamp(rentalData['requestDate'])),
+                _buildHistoryInfoRow(label: "Accepted On", value: formatTimestamp(rentalData['responseDate'])),
+                _buildHistoryInfoRow(label: "Collected On", value: formatTimestamp(rentalData['collectedAt'])),
+                _buildHistoryInfoRow(label: "Returned On", value: formatTimestamp(rentalData['returnedAt'])),
+                _buildHistoryInfoRow(label: "Completed On", value: formatTimestamp(rentalData['completedAt'])),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -220,16 +226,33 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     if (value == 'N/A') return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Text(
-        "$label: $value",
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+      child: Row(
+        children: [
+          Text(
+            "$label: ",
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (label.contains("ID"))
+            IconButton(
+              icon: const Icon(Icons.copy, color: Colors.white54, size: 14),
+              onPressed: () => _copyToClipboard(context, value),
+            ),
+        ],
       ),
     );
   }
 
-  Future<void> _handleRequest(BuildContext context, String docId, String newStatus) async {
+  Future<void> _handleRequest(BuildContext context, String docId, String newStatus, String itemType) async {
     try {
-      final docRef = FirebaseFirestore.instance.collection('rentalRequests').doc(docId);
+      final collectionName = 'rentalRequests';
+      final docRef = FirebaseFirestore.instance.collection(collectionName).doc(docId);
       final doc = await docRef.get();
       if (!doc.exists) {
         if (!mounted) return;
@@ -239,17 +262,12 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
       final rentalData = doc.data() as Map<String, dynamic>;
       final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-      Map<String, dynamic> updateData = {
-        'status': newStatus,
-        'responseDate': FieldValue.serverTimestamp(),
-      };
+      Map<String, dynamic> updateData = {'status': newStatus};
 
-      if (newStatus == 'collected-renter' && rentalData['renterId'] == currentUserId) {
-        // Renter marks tool as collected, waiting for owner confirmation
+      if (newStatus == 'accepted') {
+        updateData['responseDate'] = FieldValue.serverTimestamp();
       } else if (newStatus == 'collected' && rentalData['ownerId'] == currentUserId) {
         updateData['collectedAt'] = FieldValue.serverTimestamp();
-      } else if (newStatus == 'returned-renter' && rentalData['renterId'] == currentUserId) {
-        // Renter marks tool as returned, waiting for owner confirmation
       } else if (newStatus == 'returned' && rentalData['ownerId'] == currentUserId) {
         updateData['returnedAt'] = FieldValue.serverTimestamp();
       } else if (newStatus == 'completed' && rentalData['ownerId'] == currentUserId) {
@@ -260,24 +278,35 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
           'participants': [rentalData['ownerId'], rentalData['renterId']],
         };
         await FirebaseFirestore.instance.collection('completedRentals').add(completedDoc);
-        final toolRef = FirebaseFirestore.instance.collection('tools').doc(rentalData['toolId']);
-        await toolRef.update({'available': true});
+
+        final itemRef = FirebaseFirestore.instance.collection('${itemType}s').doc(rentalData['${itemType}Id']);
+        await itemRef.update({'isAvailable': true});
         await docRef.delete();
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transaction completed and moved to history!')));
         return;
-      } else {
-        await docRef.update(updateData);
+      } else if (newStatus == 'rejected') {
+        final rejectedDoc = {
+          ...rentalData,
+          'status': 'rejected',
+          'rejectedAt': FieldValue.serverTimestamp(),
+          'participants': [rentalData['ownerId'], rentalData['renterId']],
+        };
+        await FirebaseFirestore.instance.collection('rejectedRentals').add(rejectedDoc);
+        await docRef.delete();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request rejected and moved to history.')));
+        return;
       }
+
       await docRef.update(updateData);
 
       if (newStatus == 'accepted') {
-        final toolRef = FirebaseFirestore.instance.collection('tools').doc(rentalData['toolId']);
-        await toolRef.update({'available': false});
+        final itemRef = FirebaseFirestore.instance.collection('${itemType}s').doc(rentalData['${itemType}Id']);
+        await itemRef.update({'isAvailable': false});
       }
 
       if (!mounted) return;
-      _updateStream.add(null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Request updated to $newStatus')));
     } catch (e) {
       if (!mounted) return;
@@ -288,130 +317,42 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
   Widget _buildRentalRequestCard(BuildContext context, QueryDocumentSnapshot doc, String userType) {
     final rentalData = doc.data() as Map<String, dynamic>;
     final status = rentalData['status'] as String? ?? 'pending';
-    final toolId = rentalData['toolId'];
 
-    if (toolId == null) {
+    final isPackage = rentalData['packageId'] != null;
+    final itemType = isPackage ? 'package' : 'tool';
+    final itemId = isPackage ? rentalData['packageId'] : rentalData['toolId'];
+
+    if (itemId == null) {
       return Card(
         color: Colors.white.withOpacity(0.06),
         margin: const EdgeInsets.symmetric(vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: const ListTile(
-          title: Text('Error: Tool ID not found', style: TextStyle(color: Colors.redAccent)),
+          title: Text('Error: Item ID not found', style: TextStyle(color: Colors.redAccent)),
           subtitle: Text('This rental request is missing key information.', style: TextStyle(color: Colors.white70)),
         ),
       );
     }
 
+    final collectionName = isPackage ? 'packages' : 'tools';
     return FutureBuilder<DocumentSnapshot>(
-      future: FirebaseFirestore.instance.collection('tools').doc(toolId).get(),
-      builder: (context, toolSnapshot) {
-        if (toolSnapshot.connectionState == ConnectionState.waiting) {
+      future: FirebaseFirestore.instance.collection(collectionName).doc(itemId).get(),
+      builder: (context, itemSnapshot) {
+        if (itemSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.white70));
         }
 
-        final toolData = toolSnapshot.data?.data() as Map<String, dynamic>? ?? {};
-        final category = toolData['category'] ?? "Miscellaneous";
+        final itemData = itemSnapshot.data?.data() as Map<String, dynamic>? ?? {};
+        final category = itemData['category'] ?? "Miscellaneous";
         final headerImage = _categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
 
-        Widget? trailingWidget;
-        bool isOwner = userType == 'owner';
-        final currentStatus = rentalData['status'];
-
-        if (isOwner) {
-          if (currentStatus == 'pending') {
-            trailingWidget = Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: () => _handleRequest(context, doc.id, 'accepted'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
-                  child: const Text('Accept', style: TextStyle(color: Colors.black)),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () => _handleRequest(context, doc.id, 'rejected'),
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-                  child: const Text('Reject', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            );
-          } else if (currentStatus == 'accepted') {
-            trailingWidget = ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Waiting for Renter...', style: TextStyle(color: Colors.white)),
-            );
-          } else if (currentStatus == 'collected-renter') {
-            trailingWidget = ElevatedButton(
-              onPressed: () => _handleRequest(context, doc.id, 'collected'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
-              child: const Text('Confirm Collection', style: TextStyle(color: Colors.black)),
-            );
-          } else if (currentStatus == 'collected') {
-            trailingWidget = ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Waiting for Renter...', style: TextStyle(color: Colors.white)),
-            );
-          } else if (currentStatus == 'returned-renter') {
-            trailingWidget = ElevatedButton(
-              onPressed: () => _handleRequest(context, doc.id, 'returned'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
-              child: const Text('Confirm Return', style: TextStyle(color: Colors.black)),
-            );
-          } else if (currentStatus == 'returned') {
-            trailingWidget = ElevatedButton(
-              onPressed: () => _handleRequest(context, doc.id, 'completed'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
-              child: const Text('Confirm & Close', style: TextStyle(color: Colors.black)),
-            );
-          }
-        } else { // renter
-          if (currentStatus == 'pending') {
-            trailingWidget = const Text('Waiting', style: TextStyle(color: Colors.white70));
-          } else if (currentStatus == 'accepted') {
-            trailingWidget = ElevatedButton(
-              onPressed: () => _handleRequest(context, doc.id, 'collected-renter'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
-              child: const Text('Tool Collected', style: TextStyle(color: Colors.black)),
-            );
-          } else if (currentStatus == 'collected-renter') {
-            trailingWidget = ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Waiting for Owner...', style: TextStyle(color: Colors.white)),
-            );
-          } else if (currentStatus == 'collected') {
-            trailingWidget = ElevatedButton(
-              onPressed: () => _handleRequest(context, doc.id, 'returned-renter'),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
-              child: const Text('Return Tool', style: TextStyle(color: Colors.white)),
-            );
-          } else if (currentStatus == 'returned-renter') {
-            trailingWidget = ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Waiting for Owner...', style: TextStyle(color: Colors.white)),
-            );
-          } else if (currentStatus == 'returned') {
-            trailingWidget = ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.grey),
-              child: const Text('Waiting for Owner...', style: TextStyle(color: Colors.white)),
-            );
-          }
-        }
-
-        final title = toolData['name'] ?? rentalData['toolName'] ?? 'Tool';
-        final subtitle = isOwner
+        final title = itemData['title'] ?? itemData['name'] ?? rentalData['itemName'] ?? 'Item';
+        final subtitle = userType == 'owner'
             ? "Renter: ${rentalData['renterName'] ?? 'N/A'}"
             : "Owner: ${rentalData['ownerName'] ?? 'N/A'}";
 
         return InkWell(
-          onTap: () {
-            // Show the tracking and chat dialog on tap
-            _showTrackingDialog(context, status, rentalData, doc.id, toolData);
-          },
+          onTap: () => _showTrackingDialog(context, status, rentalData, doc.id, itemData, itemType),
           child: Card(
             color: Colors.white.withOpacity(0.06),
             margin: const EdgeInsets.symmetric(vertical: 8),
@@ -419,6 +360,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
@@ -437,21 +379,35 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
                         Text(
                           title,
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 4),
                         Text(
                           subtitle,
                           style: const TextStyle(color: Colors.white70, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              "ID: $itemId",
+                              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy, color: Colors.white54, size: 14),
+                              onPressed: () => _copyToClipboard(context, itemId),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 8),
                         _buildStatusBadge(status),
                       ],
                     ),
                   ),
-                  if (trailingWidget != null) ...[
-                    const SizedBox(width: 8),
-                    trailingWidget,
-                  ]
+                  _buildActionButtons(context, doc.id, rentalData, status, itemType),
                 ],
               ),
             ),
@@ -459,6 +415,82 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         );
       },
     );
+  }
+
+  Widget _buildActionButtons(BuildContext context, String docId, Map<String, dynamic> rentalData, String status, String itemType) {
+    bool isOwner = rentalData['ownerId'] == FirebaseAuth.instance.currentUser!.uid;
+
+    if (isOwner) {
+      switch (status) {
+        case 'pending':
+          return Flexible(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleRequest(context, docId, 'accepted', itemType),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+                    child: const Text('Accept', style: TextStyle(color: Colors.black)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleRequest(context, docId, 'rejected', itemType),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+                    child: const Text('Reject', style: TextStyle(color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        case 'collected-renter':
+          return Flexible(
+            child: ElevatedButton(
+              onPressed: () => _handleRequest(context, docId, 'collected', itemType),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+              child: const Text('Confirm Collection', style: TextStyle(color: Colors.black)),
+            ),
+          );
+        case 'returned-renter':
+          return Flexible(
+            child: ElevatedButton(
+              onPressed: () => _handleRequest(context, docId, 'returned', itemType),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+              child: const Text('Confirm Return', style: TextStyle(color: Colors.black)),
+            ),
+          );
+        case 'returned':
+          return Flexible(
+            child: ElevatedButton(
+              onPressed: () => _handleRequest(context, docId, 'completed', itemType),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+              child: const Text('Confirm & Close', style: TextStyle(color: Colors.black)),
+            ),
+          );
+      }
+    } else { // renter
+      switch (status) {
+        case 'accepted':
+          return Flexible(
+            child: ElevatedButton(
+              onPressed: () => _handleRequest(context, docId, 'collected-renter', itemType),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.greenAccent),
+              child: const Text('Item Collected', style: TextStyle(color: Colors.black)),
+            ),
+          );
+        case 'collected':
+          return Flexible(
+            child: ElevatedButton(
+              onPressed: () => _handleRequest(context, docId, 'returned-renter', itemType),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+              child: const Text('Return Item', style: TextStyle(color: Colors.white)),
+            ),
+          );
+      }
+    }
+    return const SizedBox.shrink();
   }
 
   Widget _buildStatusBadge(String status) {
@@ -478,24 +510,16 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         text = 'Accepted';
         break;
       case 'collected':
+      case 'collected-renter':
         color = Colors.green;
         icon = Icons.handshake;
-        text = 'Collected';
-        break;
-      case 'collected-renter':
-        color = Colors.blue;
-        icon = Icons.pending;
-        text = 'Waiting Owner';
+        text = 'In Use';
         break;
       case 'returned-renter':
-        color = Colors.teal;
-        icon = Icons.pending;
-        text = 'Waiting Owner';
-        break;
       case 'returned':
-        color = Colors.greenAccent;
+        color = Colors.teal;
         icon = Icons.autorenew;
-        text = 'Returned';
+        text = 'Returning';
         break;
       case 'completed':
         color = Colors.green;
@@ -534,13 +558,27 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
-  Widget _buildCompletedRentalsList(String userId) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+  Widget _buildHistoryList(String userId, String historyType) {
+    Query query;
+    if (historyType == 'borrowed') {
+      query = FirebaseFirestore.instance
           .collection('completedRentals')
+          .where('renterId', isEqualTo: userId)
+          .orderBy('completedAt', descending: true);
+    } else if (historyType == 'shared') {
+      query = FirebaseFirestore.instance
+          .collection('completedRentals')
+          .where('ownerId', isEqualTo: userId)
+          .orderBy('completedAt', descending: true);
+    } else { // 'rejected'
+      query = FirebaseFirestore.instance
+          .collection('rejectedRentals')
           .where('participants', arrayContains: userId)
-          .orderBy('completedAt', descending: true)
-          .snapshots(),
+          .orderBy('rejectedAt', descending: true);
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: query.snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
@@ -550,9 +588,9 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         }
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24.0),
-            child: Center(child: Text("No completed rentals in your history.", style: TextStyle(color: Colors.white70))),
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Center(child: Text("No ${historyType} items in your history.", style: const TextStyle(color: Colors.white70))),
           );
         }
 
@@ -561,32 +599,65 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final rentalData = docs[index].data() as Map<String, dynamic>;
-            final isOwner = rentalData['ownerId'] == userId;
+            final isRenter = rentalData['renterId'] == userId;
+            final isPackage = rentalData['packageId'] != null;
+            final itemType = isPackage ? 'package' : 'tool';
+            final itemIdKey = isPackage ? 'packageId' : 'toolId';
+            final itemId = rentalData[itemIdKey] ?? 'N/A';
+            final itemName = rentalData['itemName'] ?? 'Item';
 
             return Card(
               color: Colors.white.withOpacity(0.06),
               margin: const EdgeInsets.symmetric(vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
-                onTap: () => _showCompletedDialog(context, rentalData),
+                onTap: () {
+                  if (historyType == 'rejected') {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('This request was rejected.')));
+                  } else {
+                    _showCompletedDialog(context, rentalData, itemType);
+                  }
+                },
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                title: Text(rentalData['toolName'] ?? 'Tool', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: Text(
-                  isOwner
-                      ? "Rented by: ${rentalData['renterName'] ?? 'N/A'}"
-                      : "Rented from: ${rentalData['ownerName'] ?? 'N/A'}",
-                  style: const TextStyle(color: Colors.white70),
+                title: Text(itemName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      historyType == 'borrowed'
+                          ? "Rented from: ${rentalData['ownerName'] ?? 'N/A'}"
+                          : "Rented by: ${rentalData['renterName'] ?? 'N/A'}",
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Text(
+                          "ID: $itemId",
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.copy, color: Colors.white54, size: 14),
+                          onPressed: () => _copyToClipboard(context, itemId),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                trailing: IconButton(
+                trailing: isRenter && historyType == 'borrowed'
+                    ? IconButton(
                   icon: const Icon(Icons.rate_review, color: Colors.white70),
                   onPressed: () {
-                    if (rentalData['toolId'] == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Tool data not available for review.")));
+                    if (rentalData[itemIdKey] == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item data not available for review.")));
                       return;
                     }
-                    _showReviewDialog(context, rentalData);
+                    _showReviewDialog(context, rentalData, isPackage);
                   },
-                ),
+                )
+                    : null, // Disable review button for owners and rejected items
               ),
             );
           },
@@ -595,9 +666,12 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
-  void _showReviewDialog(BuildContext context, Map<String, dynamic> rentalData) {
+  void _showReviewDialog(BuildContext context, Map<String, dynamic> rentalData, bool isPackage) {
     double rating = 5.0;
     final controller = TextEditingController();
+    final reviewCollection = isPackage ? 'packageReviews' : 'toolReviews';
+    final itemCollection = isPackage ? 'packages' : 'tools';
+    final itemIdKey = isPackage ? 'packageId' : 'toolId';
 
     showDialog(
       context: context,
@@ -608,32 +682,34 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
               backgroundColor: const Color(0xFF0b2a33),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text("Leave a Review", style: TextStyle(color: Colors.white)),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text("Review for: ${rentalData['toolName']}", style: const TextStyle(color: Colors.white70)),
-                  const SizedBox(height: 16),
-                  StarRating(
-                    rating: rating,
-                    enableInteraction: true,
-                    onRatingChanged: (r) {
-                      setState(() => rating = r.toDouble());
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: controller,
-                    maxLines: 3,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Write your review...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      filled: true,
-                      fillColor: Colors.white.withOpacity(0.1),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text("Review for: ${rentalData['itemName']}", style: const TextStyle(color: Colors.white70)),
+                    const SizedBox(height: 16),
+                    StarRating(
+                      rating: rating,
+                      enableInteraction: true,
+                      onRatingChanged: (r) {
+                        setState(() => rating = r.toDouble());
+                      },
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Write your review...',
+                        hintStyle: const TextStyle(color: Colors.white54),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -645,22 +721,22 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
                     final uid = FirebaseAuth.instance.currentUser!.uid;
                     final reviewerName = (await FirebaseFirestore.instance.collection('users').doc(uid).get()).data()?['name'] ?? 'User';
 
-                    final toolRef = FirebaseFirestore.instance.collection('tools').doc(rentalData['toolId']);
+                    final itemRef = FirebaseFirestore.instance.collection(itemCollection).doc(rentalData[itemIdKey]);
                     FirebaseFirestore.instance.runTransaction((transaction) async {
-                      final toolDoc = await transaction.get(toolRef);
-                      if (toolDoc.exists) {
-                        final currentRating = (toolDoc.data()?['averageRating'] as num?)?.toDouble() ?? 0.0;
-                        final currentCount = (toolDoc.data()?['ratingCount'] as int?) ?? 0;
+                      final itemDoc = await transaction.get(itemRef);
+                      if (itemDoc.exists) {
+                        final currentRating = (itemDoc.data()?['averageRating'] as num?)?.toDouble() ?? 0.0;
+                        final currentCount = (itemDoc.data()?['ratingCount'] as int?) ?? 0;
                         final newRating = ((currentRating * currentCount) + rating) / (currentCount + 1);
-                        transaction.update(toolRef, {
+                        transaction.update(itemRef, {
                           'averageRating': newRating,
                           'ratingCount': currentCount + 1,
                         });
                       }
                     });
 
-                    await FirebaseFirestore.instance.collection('toolReviews').add({
-                      'toolId': rentalData['toolId'],
+                    await FirebaseFirestore.instance.collection(reviewCollection).add({
+                      itemIdKey: rentalData[itemIdKey],
                       'userId': uid,
                       'reviewerName': reviewerName,
                       'rating': rating,
@@ -691,18 +767,89 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
           const SizedBox(height: 12),
           const Padding(
             padding: EdgeInsets.fromLTRB(16.0, 8.0, 16.0, 8.0),
-            child: Text("Tools I'm Renting", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text("Items I'm Renting", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           ),
-          _buildRentedToolsList(userId),
+          _buildRentedItemsList(userId),
           const SizedBox(height: 8),
           const Padding(
             padding: EdgeInsets.fromLTRB(16.0, 12.0, 16.0, 8.0),
-            child: Text("Tools I'm Renting Out", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            child: Text("Items I'm Renting Out", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
           ),
-          _buildToolsRentedOutList(userId),
+          _buildItemsRentedOutList(userId),
           const SizedBox(height: 24),
         ],
       ),
+    );
+  }
+
+  Widget _buildHistoryTab(String userId) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _historyTabIndex = 0;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _historyTabIndex == 0 ? Colors.greenAccent : Colors.white10,
+                    foregroundColor: _historyTabIndex == 0 ? Colors.black : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text("Borrowed Items", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _historyTabIndex = 1;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _historyTabIndex == 1 ? Colors.greenAccent : Colors.white10,
+                    foregroundColor: _historyTabIndex == 1 ? Colors.black : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text("Shared Items", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _historyTabIndex = 2;
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _historyTabIndex == 2 ? Colors.greenAccent : Colors.white10,
+                    foregroundColor: _historyTabIndex == 2 ? Colors.black : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: const Text("Rejected", style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _historyTabIndex == 0
+              ? _buildHistoryList(userId, 'borrowed')
+              : _historyTabIndex == 1
+              ? _buildHistoryList(userId, 'shared')
+              : _buildHistoryList(userId, 'rejected'),
+        ),
+      ],
     );
   }
 
@@ -786,7 +933,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
               Expanded(
                 child: _selectedIndex == 0
                     ? _buildActiveRentalsTab(user.uid)
-                    : _buildCompletedRentalsList(user.uid),
+                    : _buildHistoryTab(user.uid),
               ),
             ],
           ),
@@ -795,7 +942,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
-  Widget _buildRentedToolsList(String userId) {
+  Widget _buildRentedItemsList(String userId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rentalRequests')
@@ -809,7 +956,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.white70)));
         }
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data?.docs.where((doc) => doc['status'] != 'rejected').toList() ?? [];
         if (docs.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(24.0),
@@ -830,7 +977,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
     );
   }
 
-  Widget _buildToolsRentedOutList(String userId) {
+  Widget _buildItemsRentedOutList(String userId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('rentalRequests')
@@ -844,7 +991,7 @@ class _MyRentalsScreenState extends State<MyRentalsScreen> {
         if (snapshot.hasError) {
           return Center(child: Text("Error: ${snapshot.error}", style: const TextStyle(color: Colors.white70)));
         }
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data?.docs.where((doc) => doc['status'] != 'rejected').toList() ?? [];
         if (docs.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(24.0),
@@ -874,20 +1021,20 @@ class ChatScreen extends StatelessWidget {
   final String chatId;
   final String otherUserId;
   final String otherUserName;
-  final String toolName;
+  final String itemName; // Renamed for generic use
 
   const ChatScreen({
     super.key,
     required this.chatId,
     required this.otherUserId,
     required this.otherUserName,
-    required this.toolName,
+    required this.itemName,
   });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(toolName)),
+      appBar: AppBar(title: Text(itemName)),
       body: Center(child: Text('Chat with $otherUserName')),
     );
   }

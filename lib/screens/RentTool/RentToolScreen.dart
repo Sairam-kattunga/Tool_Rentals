@@ -40,12 +40,6 @@ class _RentToolScreenState extends State<RentToolScreen> {
     "All": "lib/assets/Categories/All.png",
   };
 
-  // Helper method to determine if the search query is a potential Firestore docId
-  bool _isPotentialDocId(String query) {
-    // A heuristic: Firestore IDs are 20 characters long and alphanumeric.
-    return query.length >= 15 && query.length <= 30 && RegExp(r'^[a-zA-Z0-9]+$').hasMatch(query);
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -90,11 +84,11 @@ class _RentToolScreenState extends State<RentToolScreen> {
                           child: TextField(
                             onChanged: (value) {
                               setState(() {
-                                _searchQuery = value.toLowerCase();
+                                _searchQuery = value;
                               });
                             },
                             decoration: InputDecoration(
-                              hintText: "Search by name or tool ID...",
+                              hintText: "Search by name, category, or tool ID...",
                               hintStyle: const TextStyle(color: Colors.white70),
                               prefixIcon: const Icon(Icons.search, color: Colors.white),
                               filled: true,
@@ -116,9 +110,8 @@ class _RentToolScreenState extends State<RentToolScreen> {
                   const SizedBox(height: 10),
                   Expanded(
                     child: StreamBuilder<QuerySnapshot>(
-                      stream: _isPotentialDocId(_searchQuery)
-                          ? FirebaseFirestore.instance.collection("tools").where(FieldPath.documentId, isEqualTo: _searchQuery).snapshots()
-                          : FirebaseFirestore.instance.collection("tools").snapshots(),
+                      // Corrected: Always fetch all tools for local filtering
+                      stream: FirebaseFirestore.instance.collection("tools").snapshots(),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator(color: Colors.white));
@@ -137,27 +130,25 @@ class _RentToolScreenState extends State<RentToolScreen> {
                           );
                         }
 
+                        // Filter tools based on category and search query
                         var tools = snapshot.data!.docs.where((doc) {
-                          if (_isPotentialDocId(_searchQuery)) {
-                            // If searching by ID, the Firestore query handles the filtering.
-                            // We only apply the category filter in case the ID search is combined with it.
-                            final data = doc.data() as Map<String, dynamic>;
-                            final category = (data["category"] ?? "").toString().toLowerCase();
-                            final categoryMatch = _selectedCategory == "All" || category == _selectedCategory.toLowerCase();
-                            return categoryMatch;
-                          }
-
-                          // For general searches, apply both category and keyword filters.
                           final data = doc.data() as Map<String, dynamic>;
-                          final name = (data["name"] ?? "").toString().toLowerCase();
                           final category = (data["category"] ?? "").toString().toLowerCase();
+                          final name = (data["name"] ?? "").toString().toLowerCase();
+                          final docId = doc.id;
 
                           final categoryMatch = _selectedCategory == "All" || category == _selectedCategory.toLowerCase();
-                          final searchMatch = name.contains(_searchQuery) || category.contains(_searchQuery);
+
+                          // Corrected: Local search logic for partial matches
+                          final searchMatch = _searchQuery.isEmpty ||
+                              docId.contains(_searchQuery) ||
+                              name.contains(_searchQuery.toLowerCase()) ||
+                              category.contains(_searchQuery.toLowerCase());
 
                           return categoryMatch && searchMatch;
                         }).toList();
 
+                        // Sort the filtered list
                         tools.sort((a, b) {
                           final dataA = a.data() as Map<String, dynamic>;
                           final dataB = b.data() as Map<String, dynamic>;

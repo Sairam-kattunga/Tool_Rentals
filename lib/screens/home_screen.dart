@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tool_rental_app/screens/ToolPackage/tool_packages_screen.dart';
-import 'package:tool_rental_app/screens/Listing/listing_choice_screen.dart';
+import 'package:tool_rental_app/screens/ToolPackages/tool_packages_screen.dart';
+import 'package:tool_rental_app/screens/listing_choice_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
 import 'package:tool_rental_app/screens/Vehicles/vehicle_rental_screen.dart'; // NEW IMPORT
@@ -144,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: () => _scaffoldKey.currentState?.openDrawer(),
                       ),
                       const Text(
-                        "ToolRental",
+                        "RentEazy",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -215,10 +215,26 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               _buildActionCard(
                                 icon: Icons.handyman,
-                                label: "Rent a Tool",
+                                label: "Tools",
                                 onTap: () => _navigateTo('/rent_tool'),
                                 gradient: const LinearGradient(
-                                  colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+                                  colors: [Color(0xFFCED517), Color(0xFF8CD112)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.local_mall,
+                                label: "Packages",
+                                onTap: () => _navigateTo('/tool_packages'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFD66D75), Color(0xFFE29587)],
+                                ),
+                              ),
+                              _buildActionCard(
+                                icon: Icons.directions_car,
+                                label: "Vehicles",
+                                onTap: () => _navigateTo('/vehicle_rentals'),
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFFEF1A1A), Color(0xFFD78CD7)],
                                 ),
                               ),
                               _buildActionCard(
@@ -245,23 +261,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   colors: [Color(0xFF38ef7d), Color(0xFF11998e)],
                                 ),
                               ),
-                              _buildActionCard(
-                                icon: Icons.local_mall,
-                                label: "Tool Packages",
-                                onTap: () => _navigateTo('/tool_packages'),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFD66D75), Color(0xFFE29587)],
-                                ),
-                              ),
+
                               // NEW VEHICLE RENTALS CARD
-                              _buildActionCard(
-                                icon: Icons.directions_car,
-                                label: "Vehicle Rentals",
-                                onTap: () => _navigateTo('/vehicle_rentals'),
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFC04848), Color(0xFF480048)],
-                                ),
-                              ),
+
                             ],
                           ),
                         ),
@@ -304,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             _buildDrawerItem(Icons.home, "Home", () => _navigateTo('/home')),
-            _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/profile')),
+            _buildDrawerItem(Icons.account_circle, "User Account", () => _navigateTo('/user_account')),
             _buildDrawerItem(Icons.settings, "App Settings", () => _navigateTo('/app_settings')),
             _buildDrawerItem(Icons.policy, "Policies", () => _navigateTo('/policies')),
             _buildDrawerItem(Icons.help, "Help & Info", () => _navigateTo('/help_info')),

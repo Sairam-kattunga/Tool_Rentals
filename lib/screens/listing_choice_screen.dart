@@ -2,7 +2,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:tool_rental_app/screens/Listing/list_tool_screen.dart';
-import 'package:tool_rental_app/screens/Listing/list_package_category_screen.dart';
+import 'package:tool_rental_app/screens/ListPackage/list_package_category_screen.dart';
 
 class ListingChoiceScreen extends StatelessWidget {
   const ListingChoiceScreen({super.key});
