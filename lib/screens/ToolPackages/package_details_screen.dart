@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:tool_rental_app/constants/app_data.dart';
 
 class PackageDetailsScreen extends StatelessWidget {
@@ -126,19 +126,23 @@ class PackageDetailsScreen extends StatelessWidget {
                   'status': 'pending',
                 });
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Rental request sent to owner!', style: TextStyle(color: Colors.white)),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Rental request sent to owner!', style: TextStyle(color: Colors.white)),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to send request: $e', style: const TextStyle(color: Colors.white)),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to send request: $e', style: const TextStyle(color: Colors.white)),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -307,6 +311,13 @@ class PackageDetailsScreen extends StatelessWidget {
 
             final String category = data['category'] ?? "Miscellaneous";
             final String headerImage = AppData.categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
+            final String locationLink = data['locationLink'] ?? "";
+            final String addressName = data['addressName'] ?? 'N/A';
+            final String street = data['street'] ?? 'N/A';
+            final String city = data['city'] ?? 'N/A';
+            final String state = data['state'] ?? 'N/A';
+            final String postalCode = data['postalCode'] ?? 'N/A';
+
 
             DateTime? availableFrom = (data['availableFrom'] as Timestamp?)?.toDate();
             DateTime? availableTo = (data['availableTo'] as Timestamp?)?.toDate();
@@ -427,6 +438,60 @@ class PackageDetailsScreen extends StatelessWidget {
 
                               const SizedBox(height: 20),
 
+                              const Text(
+                                "Location",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '$addressName, $street, $city, $state - $postalCode',
+                                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                              ),
+                              if (locationLink.isNotEmpty)
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () async {
+                                      final Uri uri = Uri.parse(locationLink);
+                                      try {
+                                        if (!await launchUrl(uri)) {
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Could not open map.')),
+                                            );
+                                          }
+                                        }
+                                      } catch (e) {
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('An error occurred.')),
+                                          );
+                                        }
+                                      }
+                                    },
+                                    icon: const Icon(Icons.location_on, color: Colors.white),
+                                    label: const Text(
+                                      "View on Maps",
+                                      style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blueAccent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                              const SizedBox(height: 20),
+
                               _buildInfoRow(
                                 icon: Icons.category,
                                 label: "Category",
@@ -533,79 +598,79 @@ class StarRating extends StatelessWidget {
 }
 
 Widget _buildReviewsList(String packageId) {
-return StreamBuilder<QuerySnapshot>(
-stream: FirebaseFirestore.instance
-    .collection('packageReviews')
-    .where('packageId', isEqualTo: packageId)
-    .orderBy('createdAt', descending: true)
-    .snapshots(),
-builder: (context, snapshot) {
-if (snapshot.connectionState == ConnectionState.waiting) {
-return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
-}
-if (snapshot.hasError) {
-return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-}
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('packageReviews')
+        .where('packageId', isEqualTo: packageId)
+        .orderBy('createdAt', descending: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+      }
+      if (snapshot.hasError) {
+        return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+      }
 
-final reviews = snapshot.data?.docs ?? [];
+      final reviews = snapshot.data?.docs ?? [];
 
-if (reviews.isEmpty) {
-return const Padding(
-padding: EdgeInsets.symmetric(vertical: 24),
-child: Center(
-child: Text("No reviews yet. Be the first!", style: TextStyle(color: Colors.white70)),
-),
-);
-}
+      if (reviews.isEmpty) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 24),
+          child: Center(
+            child: Text("No reviews yet. Be the first!", style: TextStyle(color: Colors.white70)),
+          ),
+        );
+      }
 
-return ListView.builder(
-shrinkWrap: true,
-physics: const NeverScrollableScrollPhysics(),
-itemCount: reviews.length,
-itemBuilder: (context, index) {
-final reviewData = reviews[index].data() as Map<String, dynamic>;
-final Timestamp? timestamp = reviewData['createdAt'] as Timestamp?;
-final String formattedDate = timestamp != null
-? DateFormat('MMM dd, yyyy').format(timestamp.toDate())
-    : 'N/A';
+      return ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: reviews.length,
+        itemBuilder: (context, index) {
+          final reviewData = reviews[index].data() as Map<String, dynamic>;
+          final Timestamp? timestamp = reviewData['createdAt'] as Timestamp?;
+          final String formattedDate = timestamp != null
+              ? DateFormat('MMM dd, yyyy').format(timestamp.toDate())
+              : 'N/A';
 
-return Padding(
-padding: const EdgeInsets.symmetric(vertical: 8.0),
-child: Card(
-color: Colors.white.withOpacity(0.08),
-shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-child: Padding(
-padding: const EdgeInsets.all(16.0),
-child: Column(
-crossAxisAlignment: CrossAxisAlignment.start,
-children: [
-Row(
-mainAxisAlignment: MainAxisAlignment.spaceBetween,
-children: [
-Text(
-reviewData['reviewerName'] ?? 'Anonymous',
-style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-),
-Text(
-formattedDate,
-style: const TextStyle(color: Colors.white54, fontSize: 12),
-),
-],
-),
-const SizedBox(height: 8),
-StarRating(rating: (reviewData['rating'] as num?)?.toDouble() ?? 0.0),
-const SizedBox(height: 8),
-Text(
-reviewData['review'] ?? 'No review text.',
-style: const TextStyle(color: Colors.white70, fontSize: 14),
-),
-],
-),
-),
-),
-);
-},
-);
-},
-);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Card(
+              color: Colors.white.withOpacity(0.08),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          reviewData['reviewerName'] ?? 'Anonymous',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          formattedDate,
+                          style: const TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    StarRating(rating: (reviewData['rating'] as num?)?.toDouble() ?? 0.0),
+                    const SizedBox(height: 8),
+                    Text(
+                      reviewData['review'] ?? 'No review text.',
+                      style: const TextStyle(color: Colors.white70, fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }

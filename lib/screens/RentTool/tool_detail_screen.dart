@@ -302,34 +302,53 @@ class ToolDetailScreen extends StatelessWidget {
 
                       const SizedBox(height: 20),
 
-                      _buildInfoRow(
-                        icon: Icons.map,
-                        label: "Address",
-                        value: '$addressName, $street, $city, $state - $postalCode',
+                      const Text(
+                        "Location",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$addressName, $street, $city, $state - $postalCode',
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                       if (locationLink != "N/A" && locationLink.isNotEmpty)
-                        TextButton.icon(
-                          onPressed: () async {
-                            final Uri uri = Uri.parse(locationLink);
-                            try {
-                              if (!await launchUrl(uri)) {
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final Uri uri = Uri.parse(locationLink);
+                              try {
+                                if (!await launchUrl(uri)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text('Could not open map.')),
+                                  );
+                                }
+                              } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                      content: Text('Could not open map.')),
+                                      content: Text('An error occurred.')),
                                 );
                               }
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content: Text('An error occurred.')),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.location_on, color: Colors.blueAccent),
-                          label: const Text(
-                            "View on Maps",
-                            style: TextStyle(
-                                color: Colors.blueAccent, fontSize: 16),
+                            },
+                            icon: const Icon(Icons.location_on, color: Colors.white),
+                            label: const Text(
+                              "View on Maps",
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blueAccent,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
                           ),
                         ),
 

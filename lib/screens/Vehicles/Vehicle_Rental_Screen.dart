@@ -16,31 +16,26 @@ class VehicleRentalScreen extends StatefulWidget {
 class _VehicleRentalScreenState extends State<VehicleRentalScreen> {
   String _searchText = '';
   String _selectedCategory = 'All';
-  bool _sortAscending = true;
+  String _sortOption = "Price: Low to High";
 
-  void _sortVehicles(List<Vehicle> vehicles) {
-    vehicles.sort((a, b) {
-      if (_sortAscending) {
-        return a.rentPerDay.compareTo(b.rentPerDay);
-      } else {
-        return b.rentPerDay.compareTo(a.rentPerDay);
-      }
-    });
-  }
+  /// Map each category to its corresponding local image
+  final Map<String, String> _categoryImages = {
+    "All": "lib/assets/Vehicles/All.png",
+    "Car": "lib/assets/Vehicles/Cars.png",
+    "Motorcycle": "lib/assets/Vehicles/Bikes.png",
+    "Truck": "lib/assets/Vehicles/Trucks.png",
+    "Van": "lib/assets/Vehicles/Vans.png",
+    "Bicycle": "lib/assets/Vehicles/Bicycles.png",
+    "Scooter": "lib/assets/Vehicles/Scooters.png",
+    "RV / Camper": "lib/assets/Vehicles/RVs.png",
+    "Other": "lib/assets/Vehicles/Others.png",
+  };
 
-  void _navigateToCategorySelection() async {
-    final String? selectedCategory = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const VehicleCategorySelectionScreen(),
-      ),
-    );
-    if (selectedCategory != null) {
-      setState(() {
-        _selectedCategory = selectedCategory;
-      });
-    }
-  }
+  final List<String> _sortOptions = [
+    "Price: Low to High",
+    "Price: High to Low",
+    "Availability First",
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -51,84 +46,119 @@ class _VehicleRentalScreenState extends State<VehicleRentalScreen> {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF203a43),
+        elevation: 0,
+        centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      body: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
           ),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildSearchBar(),
+          SafeArea(
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildSearchBar(),
+                      ),
+                      const SizedBox(width: 10),
+                      _buildSortButton(),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _buildSortIcon(),
-                ],
-              ),
-            ),
-            _buildCategoryButton(),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('vehicles')
-                    .where('isAvailable', isEqualTo: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: Colors.white));
-                  }
+                ),
+                _buildCategoryButton(),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance.collection('vehicles').snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator(color: Colors.white));
+                      }
 
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white70)));
-                  }
+                      if (snapshot.hasError) {
+                        return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white70)));
+                      }
 
-                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('No vehicles currently available.', style: TextStyle(color: Colors.white70)));
-                  }
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return const Center(child: Text('No vehicles currently available.', style: TextStyle(color: Colors.white70)));
+                      }
 
-                  List<Vehicle> allVehicles = snapshot.data!.docs.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return Vehicle.fromMap(data, id: doc.id);
-                  }).toList();
+                      List<Vehicle> allVehicles = snapshot.data!.docs.map((doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return Vehicle.fromMap(data, id: doc.id);
+                      }).toList();
 
-                  List<Vehicle> filteredVehicles = allVehicles.where((vehicle) {
-                    final matchesSearch = vehicle.make.toLowerCase().contains(_searchText.toLowerCase()) ||
-                        vehicle.model.toLowerCase().contains(_searchText.toLowerCase()) ||
-                        vehicle.description.toLowerCase().contains(_searchText.toLowerCase());
-                    final matchesCategory = _selectedCategory == 'All' || vehicle.category == _selectedCategory;
-                    return matchesSearch && matchesCategory;
-                  }).toList();
+                      List<Vehicle> filteredVehicles = allVehicles.where((vehicle) {
+                        final matchesSearch = vehicle.make.toLowerCase().contains(_searchText.toLowerCase()) ||
+                            vehicle.model.toLowerCase().contains(_searchText.toLowerCase()) ||
+                            vehicle.description.toLowerCase().contains(_searchText.toLowerCase());
 
-                  _sortVehicles(filteredVehicles);
+                        final matchesCategory = _selectedCategory == 'All' || vehicle.category == _selectedCategory;
 
-                  if (filteredVehicles.isEmpty) {
-                    return const Center(
-                        child: Text('No vehicles match your search criteria.', style: TextStyle(color: Colors.white70)));
-                  }
+                        return matchesSearch && matchesCategory;
+                      }).toList();
 
-                  return ListView.builder(
-                    itemCount: filteredVehicles.length,
-                    itemBuilder: (context, index) {
-                      final vehicle = filteredVehicles[index];
-                      return _buildVehicleCard(context, vehicle);
+                      _sortVehicles(filteredVehicles);
+
+                      if (filteredVehicles.isEmpty) {
+                        return const Center(
+                            child: Text('No vehicles match your search criteria.', style: TextStyle(color: Colors.white70)));
+                      }
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 0.7,
+                        ),
+                        itemCount: filteredVehicles.length,
+                        itemBuilder: (context, index) {
+                          final vehicle = filteredVehicles[index];
+                          return _buildVehicleGridItem(context, vehicle);
+                        },
+                      );
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
+  }
+
+  void _sortVehicles(List<Vehicle> vehicles) {
+    vehicles.sort((a, b) {
+      final availA = a.isAvailable;
+      final availB = b.isAvailable;
+
+      switch (_sortOption) {
+        case "Price: Low to High":
+          return a.rentPerDay.compareTo(b.rentPerDay);
+        case "Price: High to Low":
+          return b.rentPerDay.compareTo(a.rentPerDay);
+        case "Availability First":
+          if (availA && !availB) return -1;
+          if (!availA && availB) return 1;
+          return 0;
+        default:
+          return 0;
+      }
+    });
   }
 
   Widget _buildSearchBar() {
@@ -138,115 +168,80 @@ class _VehicleRentalScreenState extends State<VehicleRentalScreen> {
           _searchText = value;
         });
       },
-      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
-        hintText: 'Search vehicles...',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search, color: Colors.white70),
-        suffixIcon: _searchText.isNotEmpty
-            ? IconButton(
-          icon: const Icon(Icons.clear, color: Colors.white70),
-          onPressed: () {
-            setState(() {
-              _searchText = '';
-            });
-          },
-        )
-            : null,
+        hintText: "Search by name, model, or description...",
+        hintStyle: const TextStyle(color: Colors.white70),
+        prefixIcon: const Icon(Icons.search, color: Colors.white),
         filled: true,
         fillColor: Colors.white.withOpacity(0.1),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30.0),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
       ),
+      style: const TextStyle(color: Colors.white),
     );
   }
 
-  Widget _buildSortIcon() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        shape: BoxShape.circle,
-      ),
-      child: IconButton(
-        onPressed: () {
-          setState(() {
-            _sortAscending = !_sortAscending;
-          });
-        },
-        icon: Icon(
-          _sortAscending ? Icons.sort : Icons.sort,
-          color: Colors.white,
+  Widget _buildSortButton() {
+    return PopupMenuButton<String>(
+      onSelected: (String result) {
+        setState(() {
+          _sortOption = result;
+        });
+      },
+      itemBuilder: (BuildContext context) => _sortOptions.map((String option) {
+        return PopupMenuItem<String>(
+          value: option,
+          child: Text(option),
+        );
+      }).toList(),
+      icon: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
         ),
-        tooltip: _sortAscending ? 'Sort Descending' : 'Sort Ascending',
+        child: const Icon(Icons.sort, color: Colors.white),
       ),
     );
   }
 
   Widget _buildCategoryButton() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: OutlinedButton.icon(
-        onPressed: _navigateToCategorySelection,
-        icon: const Icon(Icons.category, color: Colors.white),
-        label: Text(
-          'Category: $_selectedCategory',
-          style: const TextStyle(color: Colors.white),
-        ),
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white70),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVehicleCard(BuildContext context, Vehicle vehicle) {
-    return Card(
-      color: Colors.white.withOpacity(0.1),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          final selected = await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => VehicleDetailScreen(vehicle: vehicle),
+              builder: (context) => VehicleCategorySelectionScreen(),
             ),
           );
+          if (selected != null && selected is String) {
+            setState(() {
+              _selectedCategory = selected;
+            });
+          }
         },
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Row(
             children: [
-              Text(
-                '${vehicle.make} ${vehicle.model} (${vehicle.year})',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              const Icon(Icons.category, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _selectedCategory,
+                  style: const TextStyle(color: Colors.white, overflow: TextOverflow.ellipsis),
                 ),
               ),
-              const SizedBox(height: 8),
-              Text(
-                vehicle.description,
-                style: const TextStyle(color: Colors.white70, fontSize: 14),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildDetailChip(Icons.currency_rupee, '${vehicle.rentPerDay.toStringAsFixed(0)} / Day'),
-                  _buildDetailChip(Icons.location_on, vehicle.address),
-                ],
-              ),
+              const Icon(Icons.arrow_drop_down, color: Colors.white),
             ],
           ),
         ),
@@ -254,26 +249,96 @@ class _VehicleRentalScreenState extends State<VehicleRentalScreen> {
     );
   }
 
-  Widget _buildDetailChip(IconData icon, String text) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: Colors.white, size: 16),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              text,
-              style: const TextStyle(color: Colors.white, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
+  Widget _buildVehicleGridItem(BuildContext context, Vehicle vehicle) {
+    final bool isAvailable = vehicle.isAvailable;
+    final String imagePath = _categoryImages[vehicle.category] ?? "lib/assets/Vehicles/Others.png";
+
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VehicleDetailScreen(vehicle: vehicle),
           ),
-        ],
+        );
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white24),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+              child: Image.asset(
+                imagePath,
+                height: 100,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${vehicle.make} ${vehicle.model}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "₹${vehicle.rentPerDay.toStringAsFixed(2)} / day",
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isAvailable
+                            ? () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => VehicleDetailScreen(vehicle: vehicle),
+                            ),
+                          );
+                        }
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                          foregroundColor: isAvailable ? Colors.black : Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        ),
+                        child: Text(isAvailable ? "Rent" : "Unavailable"),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

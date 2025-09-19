@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'AddAddressScreen.dart'; // Ensure this screen is correctly imported
 
 class AddressesScreen extends StatelessWidget {
@@ -15,6 +16,9 @@ class AddressesScreen extends StatelessWidget {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (BuildContext bc) {
+        final data = addressDoc.data() as Map<String, dynamic>?;
+        final String? locationLink = data?['location'];
+
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -30,6 +34,25 @@ class AddressesScreen extends StatelessWidget {
                   ),
                 ),
               ),
+              if (locationLink != null && locationLink.isNotEmpty)
+                ListTile(
+                  leading: const Icon(Icons.map, color: Colors.blueAccent),
+                  title: const Text('View on Map',
+                      style: TextStyle(color: Colors.white)),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    final uri = Uri.parse(locationLink);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri);
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Could not open map.')),
+                        );
+                      }
+                    }
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.edit, color: Colors.blueAccent),
                 title: const Text('Edit Address',
@@ -88,8 +111,7 @@ class AddressesScreen extends StatelessWidget {
           ],
         );
       },
-    ) ??
-        false;
+    ) ?? false;
 
     if (confirm) {
       try {
@@ -207,9 +229,12 @@ class AddressesScreen extends StatelessWidget {
                   return ListView.builder(
                     itemCount: addresses.length,
                     itemBuilder: (context, index) {
-                      final address = addresses[index].data() as Map<String, dynamic>;
+                      final addressDoc = addresses[index];
+                      final address = addressDoc.data() as Map<String, dynamic>;
+                      final String? locationLink = address['location'];
+
                       return Dismissible(
-                        key: Key(addresses[index].id),
+                        key: Key(addressDoc.id),
                         direction: DismissDirection.endToStart,
                         background: Container(
                           alignment: Alignment.centerRight,
@@ -217,7 +242,7 @@ class AddressesScreen extends StatelessWidget {
                           color: Colors.redAccent,
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
-                        confirmDismiss: (direction) => _confirmDelete(context, addresses[index].reference),
+                        confirmDismiss: (direction) => _confirmDelete(context, addressDoc.reference),
                         child: Card(
                           color: Colors.white.withOpacity(0.1),
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -229,11 +254,33 @@ class AddressesScreen extends StatelessWidget {
                             leading: const Icon(Icons.location_on, color: Colors.white70),
                             title: Text(address['addressName'] ?? 'Unnamed Address',
                                 style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            subtitle: Text(
-                              '${address['street']}, ${address['city']}, ${address['state']} - ${address['postalCode']}',
-                              style: const TextStyle(color: Colors.white54),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${address['street']}, ${address['city']}, ${address['state']} - ${address['postalCode']}',
+                                  style: const TextStyle(color: Colors.white54),
+                                ),
+                                if (locationLink != null && locationLink.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4.0),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.link, size: 16, color: Colors.blueAccent),
+                                        const SizedBox(width: 4),
+                                        Flexible(
+                                          child: Text(
+                                            locationLink,
+                                            style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
-                            onTap: () => _showAddressActions(context, addresses[index]),
+                            onTap: () => _showAddressActions(context, addressDoc),
                             trailing: const Icon(Icons.more_vert, color: Colors.white54),
                           ),
                         ),
@@ -245,6 +292,17 @@ class AddressesScreen extends StatelessWidget {
             ),
           ],
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const AddAddressScreen(),
+            ),
+          );
+        },
+        backgroundColor: Colors.greenAccent,
+        child: const Icon(Icons.add, color: Colors.black),
       ),
     );
   }

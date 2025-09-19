@@ -10,6 +10,17 @@ class ListVehicleCategoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final List<Map<String, String>> categories = [
+      {'name': 'Car', 'imagePath': 'lib/assets/Vehicles/Cars.png'},
+      {'name': 'Motorcycle', 'imagePath': 'lib/assets/Vehicles/Bikes.png'},
+      {'name': 'Truck', 'imagePath': 'lib/assets/Vehicles/Trucks.png'},
+      {'name': 'Van', 'imagePath': 'lib/assets/Vehicles/Vans.png'},
+      {'name': 'Bicycle', 'imagePath': 'lib/assets/Vehicles/Bicycles.png'},
+      {'name': 'Scooter', 'imagePath': 'lib/assets/Vehicles/Scooters.png'},
+      {'name': 'RV / Camper', 'imagePath': 'lib/assets/Vehicles/RVs.png'},
+      {'name': 'Other', 'imagePath': 'lib/assets/Vehicles/Others.png'},
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -17,6 +28,8 @@ class ListVehicleCategoryScreen extends StatelessWidget {
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         backgroundColor: const Color(0xFF203a43),
+        elevation: 0,
+        centerTitle: false,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
@@ -28,98 +41,104 @@ class ListVehicleCategoryScreen extends StatelessWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ListView(
-            children: [
-              _buildCategoryCard(
+          padding: const EdgeInsets.all(24.0),
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 16.0,
+              mainAxisSpacing: 16.0,
+              childAspectRatio: 1.0,
+            ),
+            itemCount: categories.length,
+            itemBuilder: (context, index) {
+              final category = categories[index];
+              return _buildCategoryCard(
                 context,
-                'Car',
-                Icons.directions_car,
-                Colors.deepOrange,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'Motorcycle',
-                Icons.motorcycle,
-                Colors.blueAccent,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'Truck',
-                Icons.local_shipping,
-                Colors.green,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'Van',
-                Icons.airport_shuttle,
-                Colors.amber,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'Bicycle',
-                Icons.pedal_bike,
-                Colors.purple,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'Scooter',
-                Icons.electric_scooter,
-                Colors.cyan,
-              ),
-              const SizedBox(height: 20),
-              _buildCategoryCard(
-                context,
-                'RV / Camper',
-                Icons.rv_hookup,
-                Colors.redAccent,
-              ),
-            ],
+                category['name']!,
+                category['imagePath']!,
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCategoryCard(BuildContext context, String category, IconData icon, Color color) {
-    return Card(
-      color: Colors.white10,
-      elevation: 5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-      child: InkWell(
-        onTap: () {
-          // Navigate to the details screen for the selected category
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => VehicleDetailsScreen(category: category),
+  Widget _buildCategoryCard(
+      BuildContext context,
+      String categoryName,
+      String imagePath,
+      ) {
+    return InkWell(
+      onTap: () {
+        // Navigate to the details screen for the selected category
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => VehicleDetailsScreen(category: categoryName),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(24),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          );
-        },
-        borderRadius: BorderRadius.circular(15),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              Icon(icon, size: 40, color: color),
-              const SizedBox(width: 20),
-              Text(
-                category,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Image that fills the entire card
+            ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            // Gradient overlay for text readability
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  stops: const [0.6, 1.0],
                 ),
               ),
-              const Spacer(),
-              const Icon(Icons.arrow_forward_ios, color: Colors.white54),
-            ],
-          ),
+            ),
+            // Text positioned at the bottom
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 12.0),
+                child: Text(
+                  categoryName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black,
+                        blurRadius: 2,
+                        offset: Offset(1, 1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

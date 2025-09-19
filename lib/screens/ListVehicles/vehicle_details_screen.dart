@@ -30,7 +30,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
   bool _isAvailable = true;
   bool _requiresLicense = true;
   String? _selectedAddressId;
-  String? _selectedAddressText;
+  Map<String, dynamic>? _selectedAddressData; // Added to store full address data
 
   @override
   void dispose() {
@@ -67,8 +67,10 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
         description: _descriptionController.text,
         isAvailable: _isAvailable,
         requiresLicense: _requiresLicense,
-        address: _selectedAddressText!,
+        // Using address data from the selected dropdown
+        address: _selectedAddressData!['addressName'] ?? 'Unnamed Address',
         addressId: _selectedAddressId!,
+        locationLink: _selectedAddressData!['location'],
       );
 
       Navigator.push(
@@ -176,8 +178,7 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
                       _buildSwitchListTile('Available for Rent', _isAvailable, (value) => setState(() => _isAvailable = value)),
                       _buildSwitchListTile('Requires Driving License', _requiresLicense, (value) => setState(() => _requiresLicense = value)),
                       const SizedBox(height: 20),
-                      _buildSectionTitle('Vehicle Address'),
-                      _buildAddressSelection(user.uid),
+                      _buildAddressSelection(user.uid), // Updated to use the new method
                     ],
                   ),
                 ),
@@ -257,18 +258,13 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
     );
   }
 
+  // The new address selection widget based on the ListPackageScreen
   Widget _buildAddressSelection(String userId) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_selectedAddressText != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Text(
-              "Selected: $_selectedAddressText",
-              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
+        Text("Pickup Address", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+        const Divider(color: Colors.white24, height: 24),
         StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('userAddresses')
@@ -279,62 +275,74 @@ class _VehicleDetailsScreenState extends State<VehicleDetailsScreen> {
               return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
             }
             if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white70)));
+              return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
             }
             if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-              return Column(
-                children: [
-                  const Text('No addresses found. Please add one.', style: TextStyle(color: Colors.white70)),
-                  TextButton.icon(
-                    onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => const AddressesScreen()));
-                    },
-                    icon: const Icon(Icons.add, color: Colors.greenAccent),
-                    label: const Text('Add Address', style: TextStyle(color: Colors.greenAccent)),
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: TextButton.icon(
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => const AddressesScreen(),
+                    ));
+                  },
+                  icon: const Icon(Icons.add_circle, color: Colors.greenAccent),
+                  label: const Text(
+                    "No addresses found. Add a new address.",
+                    style: TextStyle(color: Colors.white70),
                   ),
-                ],
+                ),
               );
             }
 
             final addresses = snapshot.data!.docs;
-
             return DropdownButtonFormField<String>(
-              dropdownColor: const Color(0xFF2c5364),
+              value: _selectedAddressId,
               decoration: InputDecoration(
-                labelText: 'Select from Saved Addresses',
+                labelText: "Select Address",
                 labelStyle: const TextStyle(color: Colors.white70),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.white38),
+                prefixIcon: const Icon(Icons.location_on, color: Colors.white70),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.1),
+                border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.white10),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderSide: const BorderSide(color: Colors.white),
                   borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Colors.greenAccent, width: 2.0),
                 ),
               ),
-              value: _selectedAddressId,
+              dropdownColor: const Color(0xFF203a43),
               style: const TextStyle(color: Colors.white),
-              onChanged: (String? newAddressId) {
-                if (newAddressId != null) {
-                  final selectedDoc = addresses.firstWhere((doc) => doc.id == newAddressId);
-                  final data = selectedDoc.data() as Map<String, dynamic>;
-                  setState(() {
-                    _selectedAddressId = newAddressId;
-                    _selectedAddressText = '${data['street']}, ${data['city']}, ${data['state']} - ${data['postalCode']}';
-                  });
-                }
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedAddressId = newValue;
+                  _selectedAddressData = addresses.firstWhere((doc) => doc.id == newValue).data() as Map<String, dynamic>;
+                });
               },
-              items: addresses.map((DocumentSnapshot doc) {
-                final addressData = doc.data() as Map<String, dynamic>;
-                final addressText = '${addressData['street']}, ${addressData['city']}, ${addressData['state']} - ${addressData['postalCode']}';
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select an address';
+                }
+                return null;
+              },
+              items: addresses.map<DropdownMenuItem<String>>((DocumentSnapshot doc) {
+                final data = doc.data() as Map<String, dynamic>;
                 return DropdownMenuItem<String>(
                   value: doc.id,
-                  child: Text(addressText, overflow: TextOverflow.ellipsis),
+                  child: Text(data['addressName'] ?? 'Unnamed Address'),
                 );
               }).toList(),
             );
           },
         ),
+        const SizedBox(height: 16),
       ],
     );
   }
