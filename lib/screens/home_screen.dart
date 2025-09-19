@@ -6,7 +6,8 @@ import 'package:tool_rental_app/screens/ToolPackages/tool_packages_screen.dart';
 import 'package:tool_rental_app/screens/listing_choice_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
-import 'package:tool_rental_app/screens/Vehicles/vehicle_rental_screen.dart'; // NEW IMPORT
+import 'package:tool_rental_app/screens/ListVehicles/vehicle_details_screen.dart'; // NEW IMPORT
+import 'package:tool_rental_app/screens/Vehicles/Vehicle_Rental_Screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

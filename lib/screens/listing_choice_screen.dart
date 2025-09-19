@@ -1,8 +1,8 @@
-// listing_choice_screen.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:tool_rental_app/screens/Listing/list_tool_screen.dart';
 import 'package:tool_rental_app/screens/ListPackage/list_package_category_screen.dart';
+import 'package:tool_rental_app/screens/ListVehicles/list_vehicle_screen.dart'; // Import the new screen
 
 class ListingChoiceScreen extends StatelessWidget {
   const ListingChoiceScreen({super.key});
@@ -89,12 +89,12 @@ class ListingChoiceScreen extends StatelessWidget {
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (context) => const ListVehicleScreen(),
+                            builder: (context) => const ListVehicleCategoryScreen(),
                           ),
                         );
                       },
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFD31027), Color(0xFFEA384D)], // Red → Dark Red
+                        colors: [Color(0xFFD31027), Color(0xFFEA384D)],
                       ),
                     ),
                   ],
@@ -193,19 +193,6 @@ class ListingChoiceScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-// Placeholder for the new ListVehicleScreen
-class ListVehicleScreen extends StatelessWidget {
-  const ListVehicleScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("List a Vehicle")),
-      body: const Center(child: Text("This is the vehicle listing screen.")),
     );
   }
 }
