@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'SelectAddressScreen3.dart'; // Import the next screen
 import 'package:tool_rental_app/widgets/animated_button.dart';
-
+import 'package:flutter/services.dart';
 
 class ToolDetailsScreen extends StatefulWidget {
   final String selectedCategory;
@@ -17,6 +17,7 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
+  final _advanceController = TextEditingController(); // New controller for advance amount
   bool _isAvailable = true;
 
   @override
@@ -24,6 +25,7 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
     _nameController.dispose();
     _descController.dispose();
     _priceController.dispose();
+    _advanceController.dispose(); // Dispose the new controller
     super.dispose();
   }
 
@@ -36,6 +38,7 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
               "name": _nameController.text.trim(),
               "description": _descController.text.trim(),
               "pricePerDay": double.parse(_priceController.text.trim()),
+              "advanceAmount": double.parse(_advanceController.text.trim()), // Pass the new data
               "category": widget.selectedCategory,
               "available": _isAvailable,
             },
@@ -167,6 +170,17 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
                   keyboard: TextInputType.number,
                   validator: (val) {
                     if (val == null || val.isEmpty) return "Please enter a price";
+                    if (double.tryParse(val) == null) return "Please enter a valid number";
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                _buildTextField(
+                  controller: _advanceController,
+                  label: "Advance Amount (₹)",
+                  keyboard: TextInputType.number,
+                  validator: (val) {
+                    if (val == null || val.isEmpty) return "Please enter an advance amount";
                     if (double.tryParse(val) == null) return "Please enter a valid number";
                     return null;
                   },

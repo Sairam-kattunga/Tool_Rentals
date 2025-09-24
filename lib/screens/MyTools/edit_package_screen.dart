@@ -1,7 +1,10 @@
+// file: lib/screens/EditPackage/edit_package_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:tool_rental_app/screens/Profile/AddAddressScreen.dart'; // Import for AddAddressScreen
 
 class EditPackageScreen extends StatefulWidget {
   final String docId;
@@ -31,10 +34,11 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
   final List<String> _toolConditions = ["New", "Like New", "Used - Good", "Used - Fair", "Used - Poor"];
   String? _selectedCondition;
   bool _isResponsible = false;
+  bool _isAvailable = true; // New state variable for the toggle
 
-  DateTime? _startDate;
-  DateTime? _endDate;
-  final DateFormat _dateFormat = DateFormat('dd/MM/yyyy');
+  // Address-related state variables
+  String? _selectedAddressId;
+  Map<String, dynamic>? _selectedAddress;
 
   @override
   void initState() {
@@ -49,8 +53,7 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
 
     _selectedCondition = widget.initialData['condition'];
     _isResponsible = widget.initialData['isResponsible'] ?? false;
-    _startDate = (widget.initialData['availableFrom'] as Timestamp?)?.toDate();
-    _endDate = (widget.initialData['availableTo'] as Timestamp?)?.toDate();
+    _isAvailable = widget.initialData['isAvailable'] ?? true; // Initialize toggle state
 
     final tools = widget.initialData['tools'] as List? ?? [];
     if (tools.isNotEmpty) {
@@ -60,6 +63,10 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
     } else {
       _toolControllers.add(TextEditingController());
     }
+
+    // Initialize selected address from initialData if available
+    _selectedAddress = widget.initialData['address'];
+    _selectedAddressId = _selectedAddress?['addressId'];
   }
 
   @override
@@ -89,42 +96,11 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
     });
   }
 
-  Future<void> _selectDateRange() async {
-    final DateTimeRange? picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      initialDateRange: (_startDate != null && _endDate != null)
-          ? DateTimeRange(start: _startDate!, end: _endDate!)
-          : null,
-      builder: (BuildContext context, Widget? child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Colors.greenAccent,
-              onPrimary: Colors.black,
-              surface: Color(0xFF203a43),
-              onSurface: Colors.white,
-            ),
-            dialogBackgroundColor: const Color(0xFF0f2027),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() {
-        _startDate = picked.start;
-        _endDate = picked.end;
-      });
-    }
-  }
-
   Future<void> _handleUpdate() async {
     if (_formKey.currentState!.validate()) {
-      if (_startDate == null || _endDate == null) {
+      if (_selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an availability date range.')),
+          const SnackBar(content: Text('Please select a pickup address.')),
         );
         return;
       }
@@ -140,8 +116,8 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
         'weeklyRate': double.tryParse(_weeklyRateController.text) ?? 0.0,
         'deposit': double.tryParse(_depositController.text) ?? 0.0,
         'isResponsible': _isResponsible,
-        'availableFrom': _startDate,
-        'availableTo': _endDate,
+        'isAvailable': _isAvailable, // Use the new toggle state
+        'address': _selectedAddress,
       };
 
       try {
@@ -255,47 +231,20 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
     );
   }
 
-  Widget _buildDateField({
-    required String labelText,
-    required IconData icon,
-    required DateTime? startDate,
-    required DateTime? endDate,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: InputDecorator(
-        decoration: InputDecoration(
-          labelText: labelText,
-          labelStyle: const TextStyle(color: Colors.white70),
-          prefixIcon: Icon(icon, color: Colors.white70),
-          filled: true,
-          fillColor: Colors.white.withOpacity(0.1),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white10),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.greenAccent, width: 2.0),
-          ),
-        ),
-        child: Text(
-          startDate == null || endDate == null
-              ? 'Select a date range'
-              : '${_dateFormat.format(startDate)} - ${_dateFormat.format(endDate)}',
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Edit Package", style: TextStyle(color: Colors.white)),
+          backgroundColor: const Color(0xFF203a43),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: Text("Please log in to edit a package.", style: TextStyle(color: Colors.white))),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Edit Package", style: TextStyle(color: Colors.white)),
@@ -456,6 +405,97 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Address Selection
+                Text("Pickup Address", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                const Divider(color: Colors.white24, height: 24),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('userAddresses')
+                      .where('ownerId', isEqualTo: user.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+                    }
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.white)));
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: TextButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => const AddAddressScreen(),
+                            ));
+                          },
+                          icon: const Icon(Icons.add_circle, color: Colors.greenAccent),
+                          label: const Text(
+                            "No addresses found. Add a new address.",
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final addresses = snapshot.data!.docs;
+                    if (_selectedAddressId == null && addresses.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        setState(() {
+                          _selectedAddressId = addresses.first.id;
+                          _selectedAddress = addresses.first.data() as Map<String, dynamic>;
+                        });
+                      });
+                    }
+
+                    return DropdownButtonFormField<String>(
+                      value: _selectedAddressId,
+                      decoration: InputDecoration(
+                        labelText: "Select Address",
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        prefixIcon: const Icon(Icons.location_on, color: Colors.white70),
+                        filled: true,
+                        fillColor: Colors.white.withOpacity(0.1),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.white10),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.greenAccent, width: 2.0),
+                        ),
+                      ),
+                      dropdownColor: const Color(0xFF203a43),
+                      style: const TextStyle(color: Colors.white),
+                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          _selectedAddressId = newValue;
+                          _selectedAddress = addresses.firstWhere((doc) => doc.id == newValue).data() as Map<String, dynamic>;
+                        });
+                      },
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Please select an address';
+                        }
+                        return null;
+                      },
+                      items: addresses.map<DropdownMenuItem<String>>((DocumentSnapshot doc) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        return DropdownMenuItem<String>(
+                          value: doc.id,
+                          child: Text(data['addressName'] ?? 'Unnamed Address'),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+
                 // Availability
                 Text(
                   "Availability",
@@ -465,13 +505,13 @@ class _EditPackageScreenState extends State<EditPackageScreen> {
                   ),
                 ),
                 const Divider(color: Colors.white24, height: 24),
-                _buildDateField(
-                  labelText: "Select Date Range",
-                  icon: Icons.calendar_month,
-                  startDate: _startDate,
-                  endDate: _endDate,
-                  onTap: _selectDateRange,
-                ),
+                // _buildDateField(
+                //   labelText: "Select Date Range",
+                //   icon: Icons.calendar_month,
+                //   startDate: _startDate,
+                //   endDate: _endDate,
+                //   onTap: _selectDateRange,
+                // ),
                 const SizedBox(height: 16),
 
                 // Responsibility Checkbox

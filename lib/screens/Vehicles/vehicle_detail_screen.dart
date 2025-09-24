@@ -324,7 +324,7 @@ class VehicleDetailScreen extends StatelessWidget {
                             onPressed: () async {
                               final Uri uri = Uri.parse(vehicle.locationLink!);
                               try {
-                                if (!await launchUrl(uri)) {
+                                if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text('Could not open map.')),

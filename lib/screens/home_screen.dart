@@ -1,12 +1,117 @@
+// home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tool_rental_app/screens/ToolPackages/tool_packages_screen.dart';
-import 'package:tool_rental_app/screens/listing_choice_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
-import 'package:tool_rental_app/screens/Vehicles/Vehicle_Rental_Screen.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart'; // Import the staggered grid package
+
+// New dummy screens for navigation
+class PropertyRentalScreen extends StatelessWidget {
+  const PropertyRentalScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Property Rentals'),
+        backgroundColor: const Color(0xFF203a43),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Explore various property rentals.",
+                style: TextStyle(fontSize: 20, color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              Text(
+                "🏠 Houses, Apartments, Rooms, Co-living Spaces, Storage Spaces 📦",
+                style: TextStyle(fontSize: 16, color: Colors.white54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      backgroundColor: const Color(0xFF0f2027),
+    );
+  }
+}
+
+class ExperienceRentalScreen extends StatelessWidget {
+  const ExperienceRentalScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Experience Rentals'),
+        backgroundColor: const Color(0xFF203a43),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Rent a person or service for a unique experience.",
+                style: TextStyle(fontSize: 20, color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              Text(
+                "🎧 DJ, Photographer, Tour Guide, Personal Trainer 🏋️‍♀️",
+                style: TextStyle(fontSize: 16, color: Colors.white54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      backgroundColor: const Color(0xFF0f2027),
+    );
+  }
+}
+
+class LuxuryLifestyleScreen extends StatelessWidget {
+  const LuxuryLifestyleScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Luxury & Lifestyle'),
+        backgroundColor: const Color(0xFF203a43),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "Indulge in designer goods and premium items.",
+                style: TextStyle(fontSize: 20, color: Colors.white70),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              Text(
+                "💎 Designer Clothes, Jewelry, Premium Watches, Handbags 🛍️",
+                style: TextStyle(fontSize: 16, color: Colors.white54),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+      backgroundColor: const Color(0xFF0f2027),
+    );
+  }
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,13 +139,51 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   ];
 
   int _currentAd = 0;
-  int _currentIndex = 0;
-
   final Map<int, bool> _isCardPressed = {};
 
   late final AnimationController _navAnimController;
   late final Animation<double> _scaleAnimation;
   Timer? _adAutoScrollTimer;
+
+  // List of category data for the grid
+  final List<Map<String, dynamic>> _categories = [
+    {
+      'title': "Tools",
+      'subtitle': "Rent top tools",
+      'image': 'lib/assets/Categories/Tools.png',
+      'route': '/rent_tool',
+    },
+    {
+      'title': "Packages",
+      'subtitle': "Value bundles",
+      'image': 'lib/assets/Categories/Packages.png',
+      'route': '/tool_packages',
+    },
+    {
+      'title': "Vehicles",
+      'subtitle': "Cars & Bikes",
+      'image': 'lib/assets/Categories/Vehicles.png',
+      'route': '/vehicle_rentals',
+    },
+    {
+      'title': "Property Rentals",
+      'subtitle': "Houses & storage",
+      'image': 'lib/assets/Categories/properties.png',
+      'route': '/property_rentals',
+    },
+    {
+      'title': "Experience Rentals",
+      'subtitle': "Rent a person or service",
+      'image': 'lib/assets/Categories/Experiences.png',
+      'route': '/experience_rentals',
+    },
+    {
+      'title': "Luxury & Lifestyle",
+      'subtitle': "Designer goods & more",
+      'image': 'lib/assets/Categories/Luxuries.png',
+      'route': '/luxury_lifestyle',
+    },
+  ];
 
   @override
   void initState() {
@@ -51,14 +194,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _scaleAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(CurvedAnimation(parent: _navAnimController, curve: Curves.easeOut));
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _navAnimController.dispose();
+    _adAutoScrollTimer?.cancel();
+    super.dispose();
+  }
+
   void _startAutoScroll() {
     _adAutoScrollTimer?.cancel();
-    _adAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) { // Changed duration to 5 seconds
+    _adAutoScrollTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (!_pageController.hasClients) {
         if (timer.isActive) timer.cancel();
         return;
       }
-      _currentAd++; // Increment for continuous forward scrolling
+      _currentAd++;
       _pageController.animateToPage(
         _currentAd,
         duration: const Duration(milliseconds: 600),
@@ -66,14 +217,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       );
       setState(() {});
     });
-  }
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    _navAnimController.dispose();
-    _adAutoScrollTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -103,32 +246,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     if (_scaffoldKey.currentState?.isDrawerOpen ?? false) {
       Navigator.pop(context);
     }
-    switch (route) {
-      case '/rent_tool':
-        Navigator.of(context).pushNamed('/rent_tool');
-        break;
-      case '/list_choice':
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ListingChoiceScreen()));
-        break;
-      case '/my_tools':
-        Navigator.of(context).pushNamed('/my_tools');
-        break;
-      case '/my_rentals':
-        Navigator.of(context).pushNamed('/my_rentals');
-        break;
-      case '/tool_packages':
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const ToolPackagesScreen()));
-        break;
-      case '/vehicle_rentals':
-        Navigator.of(context).push(MaterialPageRoute(builder: (context) => const VehicleRentalScreen()));
-        break;
-      case '/history':
-        Navigator.of(context).pushNamed('/history');
-        break;
-      default:
-        Navigator.of(context).pushNamed(route);
-        break;
-    }
+    Navigator.pushNamed(context, route);
   }
 
   void _onAdTap(int index) {
@@ -166,15 +284,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   const Spacer(),
                   Row(
                     children: [
-                      Image.asset(
-                        'lib/assets/Logo_intro.png',
-                        height: 28,
-                        width: 28,
+                      ClipOval(
+                        child: Image.asset(
+                          'lib/assets/Logo_intro.png',
+                          height: 28,
+                          width: 28,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                       const SizedBox(width: 8),
                       const Text(
                         "RentEazy",
-                        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
@@ -196,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   Expanded(
                     child: PageView.builder(
                       controller: _pageController,
-                      itemCount: null, // Allow for infinite scrolling
+                      itemCount: null,
                       onPageChanged: (int p) => setState(() => _currentAd = p),
                       itemBuilder: (context, index) {
                         final imageIndex = index % _adImages.length;
@@ -245,35 +370,22 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: ListView(
-                  children: [
-                    _buildCategoryCard(
-                      index: 0,
-                      title: "Tools",
-                      subtitle: "Rent top tools",
-                      image: 'lib/assets/Categories/All.png',
-                      gradient: const LinearGradient(colors: [Color(0xFFCED517), Color(0xFF8CD112)]),
-                      onTap: () => _navigateTo('/rent_tool'),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildCategoryCard(
-                      index: 1,
-                      title: "Packages",
-                      subtitle: "Value bundles",
-                      image: 'lib/assets/Categories/Packages.png',
-                      gradient: const LinearGradient(colors: [Color(0xFFD66D75), Color(0xFFE29587)]),
-                      onTap: () => _navigateTo('/tool_packages'),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildCategoryCard(
-                      index: 2,
-                      title: "Vehicles",
-                      subtitle: "Cars & Bikes",
-                      image: 'lib/assets/Categories/Vehicles.png',
-                      gradient: const LinearGradient(colors: [Color(0xFFEF1A1A), Color(0xFFD78CD7)]),
-                      onTap: () => _navigateTo('/vehicle_rentals'),
-                    ),
-                  ],
+                // Replace GridView.count with MasonryGridView.count
+                child: MasonryGridView.count(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16.0,
+                  crossAxisSpacing: 16.0,
+                  itemCount: _categories.length,
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    return _buildCategoryCard(
+                      index: index,
+                      title: category['title'],
+                      subtitle: category['subtitle'],
+                      image: category['image'],
+                      onTap: () => _navigateTo(category['route']),
+                    );
+                  },
                 ),
               ),
             ),
@@ -294,11 +406,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildBottomNavItem(Icons.home, "Home", 0, 0),
-                _buildBottomNavItem(Icons.build, "My Tools", 1, 1),
+                _buildBottomNavItem(Icons.build, "My Tools", '/my_tools'),
+                _buildBottomNavItem(Icons.account_balance_wallet, "Wallet", '/wallet'),
                 _buildPlusNavItem(),
-                _buildBottomNavItem(Icons.explore, "Rentals", 2, 2),
-                _buildBottomNavItem(Icons.history, "History", 3, 3),
+                _buildBottomNavItem(Icons.explore, "Rentals", '/my_rentals'),
+                _buildBottomNavItem(Icons.history, "History", '/history'),
               ],
             ),
           ),
@@ -307,59 +419,33 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _buildBottomNavItem(IconData icon, String label, int itemIndex, int navIndex) {
-    final active = _currentIndex == navIndex;
+  Widget _buildBottomNavItem(IconData icon, String label, String route) {
     return Expanded(
       child: GestureDetector(
         onTap: () {
-          setState(() => _currentIndex = navIndex);
-          switch (label) {
-            case "Home":
-              break;
-            case "My Tools":
-              _navigateTo('/my_tools');
-              break;
-            case "Rentals":
-              _navigateTo('/my_rentals');
-              break;
-            case "Rentals":
-              _navigateTo('/my_rentals');
-              break;
-            case "History":
-              _navigateTo('/profile');
-              break;
-          }
+          Navigator.pushNamed(context, route);
         },
-        child: AnimatedBuilder(
-          animation: _scaleAnimation,
-          builder: (context, child) {
-            return Transform.scale(
-              scale: _scaleAnimation.value,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                decoration: BoxDecoration(
-                  color: active ? Colors.white.withOpacity(0.06) : Colors.transparent,
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: active ? Colors.white : Colors.white70, size: active ? 26 : 22),
-                    const SizedBox(height: 4),
-                    AnimatedDefaultTextStyle(
-                      duration: const Duration(milliseconds: 300),
-                      style: TextStyle(
-                        color: active ? Colors.white : Colors.white70,
-                        fontSize: active ? 12 : 11,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                      child: Text(label),
-                    ),
-                  ],
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.transparent,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white70, size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.normal,
                 ),
               ),
-            );
-          },
+            ],
+          ),
         ),
       ),
     );
@@ -405,7 +491,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     required String title,
     required String subtitle,
     required String image,
-    required LinearGradient gradient,
     required VoidCallback onTap,
   }) {
     final bool pressed = _isCardPressed[index] ?? false;
@@ -415,65 +500,89 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       onTapUp: (_) => _onCardTapUp(index),
       onTapCancel: () => _onCardTapUp(index),
       child: AnimatedScale(
-        scale: pressed ? 0.96 : 1.0,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOut,
+        scale: pressed ? 0.94 : 1.0,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOutBack,
         child: Container(
-          height: 100,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: const LinearGradient(colors: [Color(0xFF203a43), Color(0xFF2c5364)]),
-            boxShadow: const [BoxShadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 4))],
+            borderRadius: BorderRadius.circular(18),
+            gradient: LinearGradient(
+              colors: [Colors.white.withOpacity(0.08), Colors.white.withOpacity(0.02)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 10,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: Colors.blueAccent.withOpacity(0.15),
+                blurRadius: 20,
+                spreadRadius: -5,
+                offset: const Offset(0, 0),
+              ),
+            ],
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 100,
-                  height: 100,
+          child: Padding(
+            padding: const EdgeInsets.all(14.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  height: 70,
+                  width: 70,
                   decoration: BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage(image),
+                    shape: BoxShape.circle,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2c5364), Color(0xFF203a43)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.white.withOpacity(0.1),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                      )
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      image,
                       fit: BoxFit.cover,
-                      colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.2), BlendMode.darken),
                     ),
                   ),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    letterSpacing: 0.5,
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
+
 
   Drawer _buildDrawer() {
     return Drawer(

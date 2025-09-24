@@ -1,3 +1,5 @@
+// file: lib/screens/PackageDetails/package_details_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,10 +51,12 @@ class PackageDetailsScreen extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: value));
-                        ScaffoldMessenger.of(context!).showSnackBar(
-                          const SnackBar(content: Text("Copied to clipboard")),
-                        );
+                        if (context != null) {
+                          Clipboard.setData(ClipboardData(text: value));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Copied to clipboard")),
+                          );
+                        }
                       },
                     ),
                 ],
@@ -229,27 +233,6 @@ class PackageDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(String? title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title ?? 'No Title',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 1.2,
-            ),
-          ),
-          const Divider(color: Colors.white54, thickness: 1, height: 24),
-        ],
-      ),
-    );
-  }
-
   Widget _buildDetailSection(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -311,12 +294,15 @@ class PackageDetailsScreen extends StatelessWidget {
 
             final String category = data['category'] ?? "Miscellaneous";
             final String headerImage = AppData.categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
-            final String locationLink = data['locationLink'] ?? "";
-            final String addressName = data['addressName'] ?? 'N/A';
-            final String street = data['street'] ?? 'N/A';
-            final String city = data['city'] ?? 'N/A';
-            final String state = data['state'] ?? 'N/A';
-            final String postalCode = data['postalCode'] ?? 'N/A';
+
+            // Fetch address data from the nested 'address' map
+            final Map<String, dynamic>? addressData = data['address'];
+            final String addressName = addressData?['addressName'] ?? 'N/A';
+            final String street = addressData?['street'] ?? 'N/A';
+            final String city = addressData?['city'] ?? 'N/A';
+            final String state = addressData?['state'] ?? 'N/A';
+            final String postalCode = addressData?['postalCode'] ?? 'N/A';
+            final String locationLink = addressData?['location'] ?? '';
 
 
             DateTime? availableFrom = (data['availableFrom'] as Timestamp?)?.toDate();
@@ -458,7 +444,7 @@ class PackageDetailsScreen extends StatelessWidget {
                                     onPressed: () async {
                                       final Uri uri = Uri.parse(locationLink);
                                       try {
-                                        if (!await launchUrl(uri)) {
+                                        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                                           if (context.mounted) {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               const SnackBar(content: Text('Could not open map.')),
@@ -510,10 +496,8 @@ class PackageDetailsScreen extends StatelessWidget {
                               if (data['model'] != null && data['model'].isNotEmpty)
                                 _buildDetailSection("Model", data['model']),
 
-                              if (availableFrom != null && availableTo != null)
-                                _buildDetailSection("Availability", "${DateFormat('dd/MM/yyyy').format(availableFrom)} - ${DateFormat('dd/MM/yyyy').format(availableTo)}"),
-
-                              _buildDetailSection("Lender's Responsibility", data['isResponsible'] ? "Yes, the lender is responsible for tool-related issues." : "No, responsibility is not stated."),
+                              if (data['isResponsible'] != null)
+                                _buildDetailSection("Lender's Responsibility", data['isResponsible'] ? "Yes, the lender is responsible for tool-related issues." : "No, responsibility is not stated."),
 
                               const SizedBox(height: 20),
                               const Divider(color: Colors.white24),
@@ -595,82 +579,4 @@ class StarRating extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _buildReviewsList(String packageId) {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('packageReviews')
-        .where('packageId', isEqualTo: packageId)
-        .orderBy('createdAt', descending: true)
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
-      }
-      if (snapshot.hasError) {
-        return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-      }
-
-      final reviews = snapshot.data?.docs ?? [];
-
-      if (reviews.isEmpty) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 24),
-          child: Center(
-            child: Text("No reviews yet. Be the first!", style: TextStyle(color: Colors.white70)),
-          ),
-        );
-      }
-
-      return ListView.builder(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: reviews.length,
-        itemBuilder: (context, index) {
-          final reviewData = reviews[index].data() as Map<String, dynamic>;
-          final Timestamp? timestamp = reviewData['createdAt'] as Timestamp?;
-          final String formattedDate = timestamp != null
-              ? DateFormat('MMM dd, yyyy').format(timestamp.toDate())
-              : 'N/A';
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Card(
-              color: Colors.white.withOpacity(0.08),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          reviewData['reviewerName'] ?? 'Anonymous',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        Text(
-                          formattedDate,
-                          style: const TextStyle(color: Colors.white54, fontSize: 12),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    StarRating(rating: (reviewData['rating'] as num?)?.toDouble() ?? 0.0),
-                    const SizedBox(height: 8),
-                    Text(
-                      reviewData['review'] ?? 'No review text.',
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
 }

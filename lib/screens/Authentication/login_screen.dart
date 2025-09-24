@@ -20,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen>
   final AuthService _auth = AuthService();
   bool _loading = false;
   bool _obscurePassword = true;
-  bool _showLoginSuccess = false; // New state to control the tick animation position
+  bool _showLoginSuccess = false;
 
   late AnimationController _tickController;
   late Animation<double> _tickAnimation;
@@ -47,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // Check if user is already logged in
   void _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
     final isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
@@ -59,7 +58,6 @@ class _LoginScreenState extends State<LoginScreen>
     }
   }
 
-  // Save login status + credentials
   void _saveLoginSession(String email, String password) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('email', email);
@@ -109,10 +107,10 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             const Icon(Icons.error, color: Colors.red),
             const SizedBox(width: 8),
-            Text(title),
+            Text(title, style: const TextStyle(color: Colors.black)),
           ],
         ),
-        content: Text(message),
+        content: Text(message, style: const TextStyle(color: Colors.black)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
@@ -153,14 +151,12 @@ class _LoginScreenState extends State<LoginScreen>
                           color: Colors.white),
                     ),
                     const SizedBox(height: 40),
-
                     _buildTextField(
                         controller: _emailController,
                         hint: "Email",
                         icon: Icons.email,
                         autofillHints: const [AutofillHints.username, AutofillHints.email]),
                     const SizedBox(height: 20),
-
                     _buildTextField(
                         controller: _passwordController,
                         hint: "Password",
@@ -169,10 +165,7 @@ class _LoginScreenState extends State<LoginScreen>
                         toggleObscure: () =>
                             setState(() => _obscurePassword = !_obscurePassword),
                         autofillHints: const [AutofillHints.password]),
-
                     const SizedBox(height: 30),
-
-                    // Conditionally display loading, success, or the button
                     if (_loading)
                       const CircularProgressIndicator(color: Colors.white)
                     else if (_showLoginSuccess)
@@ -186,9 +179,7 @@ class _LoginScreenState extends State<LoginScreen>
                       )
                     else
                       AnimatedButton(text: "Login", onTap: _login),
-
                     const SizedBox(height: 20),
-
                     TextButton.icon(
                       onPressed: () {
                         Navigator.push(

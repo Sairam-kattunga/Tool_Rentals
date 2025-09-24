@@ -186,9 +186,8 @@ class _RentToolScreenState extends State<RentToolScreen> {
                           itemCount: tools.length,
                           itemBuilder: (context, index) {
                             final toolDoc = tools[index];
-                            final toolData = toolDoc.data() as Map<String, dynamic>;
                             final docId = toolDoc.id;
-                            return _buildToolGridItem(context, toolData, docId);
+                            return _buildToolGridItem(context, docId);
                           },
                         );
                       },
@@ -281,105 +280,139 @@ class _RentToolScreenState extends State<RentToolScreen> {
     );
   }
 
-  Widget _buildToolGridItem(BuildContext context, Map<String, dynamic> toolData, String docId) {
-    final bool isAvailable = toolData["available"] ?? false;
-    final String category = toolData["category"] ?? "Miscellaneous";
-    final String imagePath = _categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
+  Widget _buildToolGridItem(BuildContext context, String docId) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection("tools").doc(docId).snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator(color: Colors.white));
+        }
 
-    return InkWell(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ToolDetailScreen(
-              toolData: toolData,
-              docId: docId,
-              categoryImages: _categoryImages,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white24),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Image.asset(
-                imagePath,
-                height: 100,
-                width: double.infinity,
-                fit: BoxFit.cover,
+        final toolData = snapshot.data!.data() as Map<String, dynamic>;
+        final bool isAvailable = toolData["available"] ?? false;
+        final String category = toolData["category"] ?? "Miscellaneous";
+        final String imagePath = _categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
+
+        return InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ToolDetailScreen(
+                  docId: docId,
+                ),
               ),
+            );
+          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white24),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  child: Image.asset(
+                    imagePath,
+                    height: 100,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          toolData["name"] ?? "Tool",
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              toolData["name"] ?? "Tool",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
+                              style: const TextStyle(
+                                color: Colors.greenAccent,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
-                          style: const TextStyle(
-                            color: Colors.greenAccent,
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isAvailable
+                                ? () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ToolDetailScreen(
+                                    docId: docId,
+                                  ),
+                                ),
+                              );
+                            }
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                              foregroundColor: isAvailable ? Colors.black : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
+                            child: Text(isAvailable ? "Rent" : "Unavailable"),
                           ),
                         ),
                       ],
                     ),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isAvailable
-                            ? () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ToolDetailScreen(
-                                toolData: toolData,
-                                docId: docId,
-                                categoryImages: _categoryImages,
-                              ),
-                            ),
-                          );
-                        }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                          foregroundColor: isAvailable ? Colors.black : Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        ),
-                        child: Text(isAvailable ? "Rent" : "Unavailable"),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// A simple StarRating widget for displaying star ratings
+class StarRating extends StatelessWidget {
+  final double rating;
+
+  const StarRating({super.key, required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        5,
+            (index) {
+          int fullStars = rating.floor();
+          double remainder = rating - fullStars;
+          if (index < fullStars) {
+            return const Icon(Icons.star, color: Colors.amber, size: 18);
+          } else if (index == fullStars && remainder >= 0.5) {
+            return const Icon(Icons.star_half, color: Colors.amber, size: 18);
+          } else {
+            return const Icon(Icons.star_border, color: Colors.amber, size: 18);
+          }
+        },
       ),
     );
   }

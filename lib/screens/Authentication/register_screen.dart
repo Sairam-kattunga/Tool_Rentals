@@ -49,13 +49,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // New check for terms and conditions
     if (!_agreedToTerms) {
       _showErrorDialog("Agreement Required", "You must agree to the terms and conditions.");
       return;
     }
 
-    // Password and phone number checks
     if (_passwordController.text != _confirmPasswordController.text) {
       _showErrorDialog("Password Mismatch", "Passwords do not match.");
       return;
@@ -66,7 +64,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Set processing state
     setState(() {
       _isProcessing = true;
       _buttonText = "Processing...";
@@ -121,7 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF203a43), // Set a dark background
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
         content: Column(
@@ -136,13 +133,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white), // Set text color
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              style: const TextStyle(color: Colors.white70), // Set text color
+              style: const TextStyle(color: Colors.black87),
               textAlign: TextAlign.center,
             ),
           ],
@@ -153,7 +150,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Navigator.of(ctx).pop();
               Navigator.pushReplacementNamed(context, '/login');
             },
-            child: const Text("Go to Login", style: TextStyle(color: Colors.white)), // Set button text color
+            child: const Text("Go to Login", style: TextStyle(color: Colors.blue)),
           ),
         ],
       ),
@@ -166,16 +163,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF203a43), // Set a dark background
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            const Icon(Icons.error, color: Colors.redAccent), // Use a contrasting icon color
+            const Icon(Icons.error, color: Colors.redAccent),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: Colors.white)), // Set text color
+            Text(title, style: const TextStyle(color: Colors.black)),
           ],
         ),
-        content: Text(message, style: const TextStyle(color: Colors.white70)), // Set text color
+        content: Text(message, style: const TextStyle(color: Colors.black87)),
         actions: [
           if (showReset)
             TextButton(
@@ -183,11 +180,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Navigator.of(ctx).pop();
                 Navigator.pushNamed(context, '/forgot-password');
               },
-              child: const Text("Reset Password", style: TextStyle(color: Colors.white)), // Set button text color
+              child: const Text("Reset Password", style: TextStyle(color: Colors.blue)),
             ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text("OK", style: TextStyle(color: Colors.white)), // Set button text color
+            child: const Text("OK", style: TextStyle(color: Colors.blue)),
           ),
         ],
       ),
@@ -262,7 +259,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             setState(() => _obscurePassword = !_obscurePassword)),
                     const SizedBox(height: 30),
 
-                    // New checkbox for terms and conditions
                     Row(
                       children: [
                         Checkbox(
@@ -332,7 +328,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.white70),
-        errorStyle: const TextStyle(color: Colors.redAccent), // Set error text color
+        errorStyle: const TextStyle(color: Colors.redAccent),
         prefixIcon: Icon(icon, color: Colors.white70),
         suffixIcon: toggleObscure != null
             ? IconButton(
@@ -369,7 +365,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         decoration: InputDecoration(
           hintText: "Age Range",
           hintStyle: const TextStyle(color: Colors.white70),
-          errorStyle: const TextStyle(color: Colors.redAccent), // Set error text color
+          errorStyle: const TextStyle(color: Colors.redAccent),
           prefixIcon: const Icon(Icons.cake, color: Colors.white70),
           border: InputBorder.none,
         ),

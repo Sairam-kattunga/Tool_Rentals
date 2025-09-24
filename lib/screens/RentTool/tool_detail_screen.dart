@@ -6,15 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 
 class ToolDetailScreen extends StatelessWidget {
-  final Map<String, dynamic> toolData;
   final String docId;
-  final Map<String, String> categoryImages;
 
   const ToolDetailScreen({
     super.key,
-    required this.toolData,
     required this.docId,
-    required this.categoryImages,
   });
 
   Widget _buildInfoRow({
@@ -55,10 +51,12 @@ class ToolDetailScreen extends StatelessWidget {
                     IconButton(
                       icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
                       onPressed: () {
-                        Clipboard.setData(ClipboardData(text: value));
-                        ScaffoldMessenger.of(context!).showSnackBar(
-                          const SnackBar(content: Text("Copied to clipboard")),
-                        );
+                        if (context != null) {
+                          Clipboard.setData(ClipboardData(text: value));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text("Copied to clipboard")),
+                          );
+                        }
                       },
                     ),
                 ],
@@ -70,7 +68,7 @@ class ToolDetailScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _showRentConfirmationDialog(BuildContext context) async {
+  Future<void> _showRentConfirmationDialog(BuildContext context, Map<String, dynamic> toolData) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -132,19 +130,23 @@ class ToolDetailScreen extends StatelessWidget {
                   'status': 'pending',
                 });
 
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Rental request sent to owner!', style: TextStyle(color: Colors.white)),
-                    backgroundColor: Colors.green,
-                  ),
-                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Rental request sent to owner!', style: TextStyle(color: Colors.white)),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
               } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Failed to send request: $e', style: const TextStyle(color: Colors.white)),
-                    backgroundColor: Colors.red,
-                  ),
-                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to send request: $e', style: const TextStyle(color: Colors.white)),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               }
             },
             style: ElevatedButton.styleFrom(
@@ -160,268 +162,305 @@ class ToolDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isAvailable = toolData["available"] ?? false;
-    final String locationLink = toolData["location"] ?? "N/A";
-    final String category = toolData["category"] ?? "Miscellaneous";
-    final String headerImage = categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
-
-    final String addressName = toolData["addressName"] ?? "N/A";
-    final String street = toolData["street"] ?? "N/A";
-    final String city = toolData["city"] ?? "N/A";
-    final String state = toolData["state"] ?? "N/A";
-    final String postalCode = toolData["postalCode"] ?? "N/A";
-
-    final double averageRating = (toolData['averageRating'] as num?)?.toDouble() ?? 0.0;
-    final int ratingCount = toolData['ratingCount'] as int? ?? 0;
+    // A map to hold the image paths for each tool category.
+    final Map<String, String> categoryImages = {
+      "Drills": "lib/assets/Categories/Drills.png",
+      "Saws": "lib/assets/Categories/Saws.png",
+      "Sanders": "lib/assets/Categories/Sanders.png",
+      "Wrenches": "lib/assets/Categories/Wrenches.png",
+      "Measurement Tools": "lib/assets/Categories/Measurement.png",
+      "Plumbing Tools": "lib/assets/Categories/Plumbing.png",
+      "Gardening Tools": "lib/assets/Categories/Gardening.png",
+      "Automotive Tools": "lib/assets/Categories/Automotive.png",
+      "Miscellaneous": "lib/assets/Categories/Miscellaneous.png",
+      "All": "lib/assets/Categories/All.png",
+    };
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          toolData["name"] ?? "Tool Details",
-          style: const TextStyle(color: Colors.white),
+        title: const Text(
+          "Tool Details",
+          style: TextStyle(color: Colors.white),
         ),
         backgroundColor: const Color(0xFF203a43),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('tools').doc(docId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+          }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Tool not found.', style: TextStyle(color: Colors.white54, fontSize: 18)));
+          }
+
+          final toolData = snapshot.data!.data() as Map<String, dynamic>;
+
+          final bool isAvailable = toolData["available"] ?? false;
+          final String category = toolData["category"] ?? "Miscellaneous";
+          final String headerImage = categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
+
+          // Correctly fetch address data directly from the toolData map
+          final Map<String, dynamic>? addressData = toolData['address'];
+          final String addressName = addressData?['addressName'] ?? 'N/A';
+          final String street = addressData?['street'] ?? 'N/A';
+          final String city = addressData?['city'] ?? 'N/A';
+          final String state = addressData?['state'] ?? 'N/A';
+          final String postalCode = addressData?['postalCode'] ?? 'N/A';
+          final String locationLink = addressData?['location'] ?? '';
+
+          final double advanceAmount = (toolData['advanceAmount'] as num?)?.toDouble() ?? 0.0;
+          final double averageRating = (toolData['averageRating'] as num?)?.toDouble() ?? 0.0;
+          final int ratingCount = toolData['ratingCount'] as int? ?? 0;
+
+          return Stack(
+            children: [
+              Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
               ),
-            ),
-          ),
-          SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
+              SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Image.asset(
-                      headerImage,
-                      height: 220,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
-                    Container(
-                      height: 220,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Colors.black.withOpacity(0.6),
-                            Colors.transparent
-                          ],
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
+                    Stack(
+                      children: [
+                        Image.asset(
+                          headerImage,
+                          height: 220,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
                         ),
-                      ),
+                        Container(
+                          height: 220,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.black.withOpacity(0.6),
+                                Colors.transparent
+                              ],
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          left: 16,
+                          bottom: 16,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                toolData["name"] ?? "Tool",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  shadows: [
+                                    Shadow(
+                                      blurRadius: 10.0,
+                                      color: Colors.black,
+                                      offset: Offset(2.0, 2.0),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                isAvailable ? "Available" : "Not Available",
+                                style: TextStyle(
+                                  color: isAvailable ? Colors.greenAccent : Colors.redAccent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  shadows: const [
+                                    Shadow(
+                                      blurRadius: 10.0,
+                                      color: Colors.black,
+                                      offset: Offset(2.0, 2.0),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    Positioned(
-                      left: 16,
-                      bottom: 16,
+
+                    Padding(
+                      padding: const EdgeInsets.all(24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            toolData["name"] ?? "Tool",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  blurRadius: 10.0,
-                                  color: Colors.black,
-                                  offset: Offset(2.0, 2.0),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "₹${(toolData["pricePerDay"] ?? 0.0).toStringAsFixed(2)} / day",
+                                style: const TextStyle(
+                                  color: Colors.green,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                              ],
-                            ),
+                              ),
+                              Row(
+                                children: [
+                                  StarRating(rating: averageRating),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "(${ratingCount} reviews)",
+                                    style: const TextStyle(color: Colors.white70),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          Text(
-                            isAvailable ? "Available" : "Not Available",
+                          const SizedBox(height: 20),
+                          _buildInfoRow(
+                            icon: Icons.payments,
+                            label: "Advance Amount",
+                            value: '₹${advanceAmount.toStringAsFixed(2)}',
+                          ),
+                          const SizedBox(height: 20),
+                          _buildInfoRow(
+                            icon: Icons.vpn_key_outlined,
+                            label: "Tool ID",
+                            value: docId,
+                            isCopyable: true,
+                            context: context,
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            "Location",
                             style: TextStyle(
-                              color: isAvailable ? Colors.greenAccent : Colors.redAccent,
+                              color: Colors.white,
+                              fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              shadows: const [
-                                Shadow(
-                                  blurRadius: 10.0,
-                                  color: Colors.black,
-                                  offset: Offset(2.0, 2.0),
-                                ),
-                              ],
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$addressName, $street, $city, $state - $postalCode',
+                            style: const TextStyle(color: Colors.white70, fontSize: 16),
+                          ),
+                          if (locationLink.isNotEmpty)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () async {
+                                  final Uri uri = Uri.parse(locationLink);
+                                  try {
+                                    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Could not open map.')),
+                                        );
+                                      }
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                            content: Text('An error occurred.')),
+                                      );
+                                    }
+                                  }
+                                },
+                                icon: const Icon(Icons.location_on, color: Colors.white),
+                                label: const Text(
+                                  "View on Maps",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.blueAccent,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          const SizedBox(height: 20),
+                          _buildInfoRow(
+                            icon: Icons.category,
+                            label: "Category",
+                            value: category,
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            "Description",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            toolData["description"] ?? "No description available for this tool.",
+                            style: const TextStyle(color: Colors.white70, fontSize: 16),
+                          ),
+                          const SizedBox(height: 20),
+                          const Divider(color: Colors.white24),
+                          const SizedBox(height: 20),
+                          const Text(
+                            "Reviews",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          _buildReviewsList(docId),
                         ],
                       ),
                     ),
                   ],
                 ),
-
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  color: Colors.white.withOpacity(0.1),
+                  child: Row(
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "₹${toolData["pricePerDay"]?.toStringAsFixed(2) ?? '0.00'} / day",
-                            style: const TextStyle(
-                              color: Colors.green,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: isAvailable ? () => _showRentConfirmationDialog(context, toolData) : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                            foregroundColor: isAvailable ? Colors.black : Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                           ),
-                          Row(
-                            children: [
-                              StarRating(rating: averageRating),
-                              const SizedBox(width: 8),
-                              Text(
-                                "(${ratingCount} reviews)",
-                                style: const TextStyle(color: Colors.white70),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      _buildInfoRow(
-                        icon: Icons.vpn_key_outlined,
-                        label: "Tool ID",
-                        value: docId,
-                        isCopyable: true,
-                        context: context,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        "Location",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$addressName, $street, $city, $state - $postalCode',
-                        style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      ),
-                      if (locationLink != "N/A" && locationLink.isNotEmpty)
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final Uri uri = Uri.parse(locationLink);
-                              try {
-                                if (!await launchUrl(uri)) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Could not open map.')),
-                                  );
-                                }
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('An error occurred.')),
-                                );
-                              }
-                            },
-                            icon: const Icon(Icons.location_on, color: Colors.white),
-                            label: const Text(
-                              "View on Maps",
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blueAccent,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
+                          child: Text(
+                            isAvailable ? "Rent Now" : "Not Available",
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ),
-
-                      const SizedBox(height: 20),
-
-                      _buildInfoRow(
-                        icon: Icons.category,
-                        label: "Category",
-                        value: category,
                       ),
-
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        "Description",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        toolData["description"] ?? "No description available for this tool.",
-                        style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      ),
-
-                      const SizedBox(height: 20),
-                      const Divider(color: Colors.white24),
-                      const SizedBox(height: 20),
-
-                      const Text(
-                        "Reviews",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      _buildReviewsList(docId),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        color: Colors.white.withOpacity(0.1),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: isAvailable
-                    ? () => _showRentConfirmationDialog(context)
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                  foregroundColor: isAvailable ? Colors.black : Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30)),
-                ),
-                child: Text(
-                  isAvailable ? "Rent Now" : "Not Available",
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -503,6 +542,7 @@ class ToolDetailScreen extends StatelessWidget {
 // A simple StarRating widget for displaying star ratings
 class StarRating extends StatelessWidget {
   final double rating;
+
   const StarRating({super.key, required this.rating});
 
   @override

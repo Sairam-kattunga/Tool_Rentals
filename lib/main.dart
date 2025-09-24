@@ -1,3 +1,4 @@
+// main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,18 +11,21 @@ import 'screens/Profile/ProfileScreen.dart';
 import 'screens/RentTool/RentToolScreen.dart';
 import 'screens/MyTools/MyToolsScreen.dart';
 import 'screens/MyRentals/MyRentalsScreen.dart';
+import 'screens/MyRentals/history_screen.dart';
 import 'screens/listing_choice_screen.dart';
-
+import 'screens/ToolPackages/tool_packages_screen.dart';
+import 'screens/Vehicles/Vehicle_Rental_Screen.dart';
 import 'screens/Policies/policies_screen.dart';
 import 'screens/AppSettings/app_settings_screen.dart';
 import 'screens/UserAccount/user_account_screen.dart';
 import 'screens/HelpInfo/help_info_screen.dart';
 import 'screens/HelpInfo/support_form_screen.dart';
 import 'screens/HelpInfo/faq_screen.dart';
-
+import 'screens/MyTools/MyToolsScreen.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
-import 'intro_screen.dart'; // ⬅️ Import IntroScreen
+import 'intro_screen.dart';
+import 'screens/wallet_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,8 +50,6 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'RentEazy',
       theme: AppTheme.lightTheme,
-
-      // ⬅️ Always start with IntroScreen
       home: IntroScreen(isLoggedIn: isLoggedIn),
 
       routes: {
@@ -58,6 +60,8 @@ class MyApp extends StatelessWidget {
         '/profile': (context) => const ProfileScreen(),
         '/rent_tool': (context) => const RentToolScreen(),
         '/my_tools': (context) => const MyListingsScreen(),
+        '/my_rentals': (context) => const MyRentalsScreen(),
+        '/history':(context) => const HistoryScreen(),
         '/list_choice': (context) => const ListingChoiceScreen(),
         '/policies': (context) => const PoliciesScreen(),
         '/app_settings': (context) => const AppSettingsScreen(),
@@ -65,7 +69,9 @@ class MyApp extends StatelessWidget {
         '/help_info': (context) => const HelpInfoScreen(),
         '/support': (context) => const SupportFormScreen(),
         '/faq': (context) => const FaqScreen(),
-        '/my_rentals': (context) => const MyRentalsScreen(),
+        '/tool_packages': (context) => const ToolPackagesScreen(),
+        '/vehicle_rentals': (context) => const VehicleRentalScreen(),
+        '/wallet': (context) => const WalletScreen(),
       },
     );
   }
