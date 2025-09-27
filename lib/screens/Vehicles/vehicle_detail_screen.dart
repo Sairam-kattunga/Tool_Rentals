@@ -356,6 +356,8 @@ class VehicleDetailScreen extends StatelessWidget {
                           ),
                         ),
                       const SizedBox(height: 20),
+                      const Divider(color: Colors.white24),
+                      const SizedBox(height: 20),
                       _buildInfoRow(
                         icon: Icons.category,
                         label: "Category",
@@ -513,7 +515,6 @@ class VehicleDetailScreen extends StatelessWidget {
   }
 }
 
-// A simple StarRating widget for displaying star ratings
 class StarRating extends StatelessWidget {
   final double rating;
   const StarRating({super.key, required this.rating});

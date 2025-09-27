@@ -7,11 +7,65 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:tool_rental_app/constants/app_data.dart';
+import 'package:tool_rental_app/screens/MyTools/edit_package_screen.dart';
 
-class PackageDetailsScreen extends StatelessWidget {
+class PackageDetailsScreen extends StatefulWidget {
   final String packageId;
 
   const PackageDetailsScreen({super.key, required this.packageId});
+
+  @override
+  State<PackageDetailsScreen> createState() => _PackageDetailsScreenState();
+}
+
+class _PackageDetailsScreenState extends State<PackageDetailsScreen> {
+  final Map<String, String> categoryImages = AppData.categoryImages;
+
+  Future<void> _handleSaveItem(BuildContext context, Map<String, dynamic> packageData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Please log in to save items.")),
+        );
+      }
+      return;
+    }
+
+    final savedItemRef = FirebaseFirestore.instance.collection("users").doc(user.uid).collection("savedItems").doc(widget.packageId);
+
+    try {
+      final doc = await savedItemRef.get();
+      if (doc.exists) {
+        await savedItemRef.delete();
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Package unsaved.")),
+          );
+        }
+      } else {
+        await savedItemRef.set({
+          'itemId': widget.packageId,
+          'type': 'package',
+          'title': packageData['title'],
+          'price': packageData['dailyRate'],
+          'imageUrl': categoryImages[packageData['category']] ?? "lib/assets/Categories/Miscellaneous.png",
+          'savedAt': FieldValue.serverTimestamp(),
+        });
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Package saved!")),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
 
   Widget _buildInfoRow({
     required IconData icon,
@@ -20,51 +74,54 @@ class PackageDetailsScreen extends StatelessWidget {
     bool isCopyable = false,
     BuildContext? context,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.white70),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white70),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  if (isCopyable)
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
-                      onPressed: () {
-                        if (context != null) {
-                          Clipboard.setData(ClipboardData(text: value));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Copied to clipboard")),
-                          );
-                        }
-                      },
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                ],
-              ),
-            ],
+                    if (isCopyable)
+                      IconButton(
+                        icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
+                        onPressed: () {
+                          if (context != null) {
+                            Clipboard.setData(ClipboardData(text: value));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Copied to clipboard")),
+                            );
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -120,7 +177,7 @@ class PackageDetailsScreen extends StatelessWidget {
                 final renterName = renterDoc.data()?['name'] ?? 'Anonymous';
 
                 await FirebaseFirestore.instance.collection("rentalRequests").add({
-                  'packageId': packageId,
+                  'packageId': widget.packageId,
                   'packageName': packageData['title'],
                   'renterId': user.uid,
                   'renterName': renterName,
@@ -262,293 +319,298 @@ class PackageDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Package Details", style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF203a43),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance.collection('packages').doc(packageId).get(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
-            }
-            if (snapshot.hasError) {
-              return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-            }
-            if (!snapshot.hasData || !snapshot.data!.exists) {
-              return const Center(child: Text('Package not found.', style: TextStyle(color: Colors.white54, fontSize: 18)));
-            }
+      body: FutureBuilder<DocumentSnapshot>(
+        future: FirebaseFirestore.instance.collection('packages').doc(widget.packageId).get(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+          }
+          if (!snapshot.hasData || !snapshot.data!.exists) {
+            return const Center(child: Text('Package not found.', style: TextStyle(color: Colors.white54, fontSize: 18)));
+          }
 
-            final data = snapshot.data!.data() as Map<String, dynamic>;
+          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final bool isAvailable = data['isAvailable'] ?? false;
+          final String category = data['category'] ?? "Miscellaneous";
+          final String headerImage = AppData.categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
+          final Map<String, dynamic>? addressData = data['address'];
+          final String addressName = addressData?['addressName'] ?? 'N/A';
+          final String street = addressData?['street'] ?? 'N/A';
+          final String city = addressData?['city'] ?? 'N/A';
+          final String state = addressData?['state'] ?? 'N/A';
+          final String postalCode = addressData?['postalCode'] ?? 'N/A';
+          final String locationLink = addressData?['location'] ?? '';
+          final double averageRating = (data['averageRating'] as num?)?.toDouble() ?? 0.0;
+          final int ratingCount = (data['ratingCount'] as int?) ?? 0;
 
-            final String category = data['category'] ?? "Miscellaneous";
-            final String headerImage = AppData.categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
-
-            // Fetch address data from the nested 'address' map
-            final Map<String, dynamic>? addressData = data['address'];
-            final String addressName = addressData?['addressName'] ?? 'N/A';
-            final String street = addressData?['street'] ?? 'N/A';
-            final String city = addressData?['city'] ?? 'N/A';
-            final String state = addressData?['state'] ?? 'N/A';
-            final String postalCode = addressData?['postalCode'] ?? 'N/A';
-            final String locationLink = addressData?['location'] ?? '';
-
-
-            DateTime? availableFrom = (data['availableFrom'] as Timestamp?)?.toDate();
-            DateTime? availableTo = (data['availableTo'] as Timestamp?)?.toDate();
-
-            final bool isAvailable = data['isAvailable'] ?? false;
-
-            // Read the actual average rating and review count from Firestore
-            final double averageRating = (data['averageRating'] as num?)?.toDouble() ?? 0.0;
-            final int ratingCount = (data['ratingCount'] as int?) ?? 0;
-
-            return Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          children: [
-                            Image.asset(
-                              headerImage,
-                              height: 220,
-                              width: double.infinity,
-                              fit: BoxFit.cover,
-                            ),
-                            Container(
-                              height: 220,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.black.withOpacity(0.6),
-                                    Colors.transparent
-                                  ],
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 16,
-                              bottom: 16,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    data["title"] ?? "Package",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      shadows: [
-                                        Shadow(
-                                          blurRadius: 10.0,
-                                          color: Colors.black,
-                                          offset: Offset(2.0, 2.0),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    isAvailable ? "Available" : "Not Available",
-                                    style: TextStyle(
-                                      color: isAvailable ? Colors.greenAccent : Colors.redAccent,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                      shadows: const [
-                                        Shadow(
-                                          blurRadius: 10.0,
-                                          color: Colors.black,
-                                          offset: Offset(2.0, 2.0),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text("Package Details", style: TextStyle(color: Colors.white)),
+              backgroundColor: const Color(0xFF203a43),
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              actions: user != null
+                  ? [
+                StreamBuilder<DocumentSnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection("users")
+                      .doc(user.uid)
+                      .collection("savedItems")
+                      .doc(widget.packageId)
+                      .snapshots(),
+                  builder: (context, savedSnapshot) {
+                    if (savedSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Colors.white));
+                    }
+                    final isSaved = savedSnapshot.hasData && savedSnapshot.data!.exists;
+                    return IconButton(
+                      icon: Icon(
+                        isSaved ? Icons.favorite : Icons.favorite_border,
+                        color: isSaved ? Colors.redAccent : Colors.white,
+                      ),
+                      onPressed: () => _handleSaveItem(context, data),
+                    );
+                  },
+                ),
+              ]
+                  : [],
+            ),
+            body: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Color(0xFF0f2027), Color(0xFF203a43), Color(0xFF2c5364)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Stack(
                             children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "₹${(data['dailyRate'] ?? 0.0).toStringAsFixed(2)} / day",
-                                    style: const TextStyle(
-                                      color: Colors.green,
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Row(
-                                    children: [
-                                      StarRating(rating: averageRating),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        "(${ratingCount} reviews)",
-                                        style: const TextStyle(color: Colors.white70),
-                                      ),
+                              Image.asset(
+                                headerImage,
+                                height: 220,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                              ),
+                              Container(
+                                height: 220,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.black.withOpacity(0.6),
+                                      Colors.transparent
                                     ],
+                                    begin: Alignment.bottomCenter,
+                                    end: Alignment.topCenter,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 20),
-
-                              _buildInfoRow(
-                                icon: Icons.vpn_key_outlined,
-                                label: "Package ID",
-                                value: packageId,
-                                isCopyable: true,
-                                context: context,
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              const Text(
-                                "Location",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                '$addressName, $street, $city, $state - $postalCode',
-                                style: const TextStyle(color: Colors.white70, fontSize: 16),
+                              Positioned(
+                                left: 16,
+                                bottom: 16,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      data["title"] ?? "Package",
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        shadows: [
+                                          Shadow(
+                                            blurRadius: 10.0,
+                                            color: Colors.black,
+                                            offset: Offset(2.0, 2.0),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      isAvailable ? "Available" : "Not Available",
+                                      style: TextStyle(
+                                        color: isAvailable ? Colors.greenAccent : Colors.redAccent,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                        shadows: const [
+                                          Shadow(
+                                            blurRadius: 10.0,
+                                            color: Colors.black,
+                                            offset: Offset(2.0, 2.0),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              if (locationLink.isNotEmpty)
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton.icon(
-                                    onPressed: () async {
-                                      final Uri uri = Uri.parse(locationLink);
-                                      try {
-                                        if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                            ],
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      "₹${(data['dailyRate'] ?? 0.0).toStringAsFixed(2)} / day",
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Row(
+                                      children: [
+                                        StarRating(rating: averageRating),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          "(${ratingCount} reviews)",
+                                          style: const TextStyle(color: Colors.white70),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+                                _buildInfoRow(
+                                  icon: Icons.vpn_key_outlined,
+                                  label: "Package ID",
+                                  value: widget.packageId,
+                                  isCopyable: true,
+                                  context: context,
+                                ),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  "Location",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '$addressName, $street, $city, $state - $postalCode',
+                                  style: const TextStyle(color: Colors.white70, fontSize: 16),
+                                ),
+                                if (locationLink.isNotEmpty)
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      onPressed: () async {
+                                        final Uri uri = Uri.parse(locationLink);
+                                        try {
+                                          if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Could not open map.')),
+                                              );
+                                            }
+                                          }
+                                        } catch (e) {
                                           if (context.mounted) {
                                             ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Could not open map.')),
+                                              const SnackBar(content: Text('An error occurred.')),
                                             );
                                           }
                                         }
-                                      } catch (e) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('An error occurred.')),
-                                          );
-                                        }
-                                      }
-                                    },
-                                    icon: const Icon(Icons.location_on, color: Colors.white),
-                                    label: const Text(
-                                      "View on Maps",
-                                      style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold),
-                                    ),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blueAccent,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                      },
+                                      icon: const Icon(Icons.location_on, color: Colors.white),
+                                      label: const Text(
+                                        "View on Maps",
+                                        style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blueAccent,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
                                       ),
                                     ),
                                   ),
+                                const SizedBox(height: 20),
+                                _buildInfoRow(
+                                  icon: Icons.category,
+                                  label: "Category",
+                                  value: category,
                                 ),
-
-                              const SizedBox(height: 20),
-
-                              _buildInfoRow(
-                                icon: Icons.category,
-                                label: "Category",
-                                value: category,
-                              ),
-
-                              _buildDetailSection("Condition", data['condition']),
-                              _buildDetailSection("Description", data['description']),
-
-                              if (data['tools'] != null && data['tools'].isNotEmpty)
-                                _buildDetailSection("Tools Included", data['tools'].join(', ')),
-
-                              if (data['brand'] != null && data['brand'].isNotEmpty)
-                                _buildDetailSection("Brand", data['brand']),
-
-                              if (data['model'] != null && data['model'].isNotEmpty)
-                                _buildDetailSection("Model", data['model']),
-
-                              if (data['isResponsible'] != null)
-                                _buildDetailSection("Lender's Responsibility", data['isResponsible'] ? "Yes, the lender is responsible for tool-related issues." : "No, responsibility is not stated."),
-
-                              const SizedBox(height: 20),
-                              const Divider(color: Colors.white24),
-                              const SizedBox(height: 20),
-
-                              const Text(
-                                "Reviews",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+                                _buildDetailSection("Condition", data['condition']),
+                                _buildDetailSection("Description", data['description']),
+                                if (data['tools'] != null && data['tools'].isNotEmpty)
+                                  _buildDetailSection("Tools Included", data['tools'].join(', ')),
+                                if (data['brand'] != null && data['brand'].isNotEmpty)
+                                  _buildDetailSection("Brand", data['brand']),
+                                if (data['model'] != null && data['model'].isNotEmpty)
+                                  _buildDetailSection("Model", data['model']),
+                                if (data['isResponsible'] != null)
+                                  _buildDetailSection("Lender's Responsibility", data['isResponsible'] ? "Yes, the lender is responsible for tool-related issues." : "No, responsibility is not stated."),
+                                const SizedBox(height: 20),
+                                const Divider(color: Colors.white24),
+                                const SizedBox(height: 20),
+                                const Text(
+                                  "Reviews",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
-                              _buildReviewsList(packageId),
-                            ],
+                                _buildReviewsList(widget.packageId),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.white.withOpacity(0.1),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: isAvailable
+                                ? () => _showRentConfirmationDialog(context, data)
+                                : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
+                              foregroundColor: isAvailable ? Colors.black : Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30)),
+                            ),
+                            child: Text(
+                              isAvailable ? "Rent Now" : "Not Available",
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Colors.white.withOpacity(0.1),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: isAvailable
-                              ? () => _showRentConfirmationDialog(context, data)
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isAvailable ? Colors.greenAccent : Colors.grey,
-                            foregroundColor: isAvailable ? Colors.black : Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30)),
-                          ),
-                          child: Text(
-                            isAvailable ? "Rent Now" : "Not Available",
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }

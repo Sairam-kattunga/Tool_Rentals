@@ -47,5 +47,6 @@ flutter:
     - lib/assets/Logo.png
     - lib/assets/Logo_intro.png
     - lib/assets/Categories/
+    - lib/assets/Homescreen/
     - lib/assets/ads/
     - lib/assets/Vehicles/

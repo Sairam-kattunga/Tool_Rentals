@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import 'SelectAddressScreen3.dart'; // Import the next screen
+import 'package:tool_rental_app/screens/Profile/AddAddressScreen.dart';
 import 'package:tool_rental_app/widgets/animated_button.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ToolDetailsScreen extends StatefulWidget {
   final String selectedCategory;
@@ -14,37 +16,76 @@ class ToolDetailsScreen extends StatefulWidget {
 
 class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _auth = FirebaseAuth.instance;
   final _nameController = TextEditingController();
   final _descController = TextEditingController();
   final _priceController = TextEditingController();
-  final _advanceController = TextEditingController(); // New controller for advance amount
+  final _advanceController = TextEditingController();
   bool _isAvailable = true;
+
+  String? _selectedAddressId;
+  Map<String, dynamic>? _selectedAddress;
 
   @override
   void dispose() {
     _nameController.dispose();
     _descController.dispose();
     _priceController.dispose();
-    _advanceController.dispose(); // Dispose the new controller
+    _advanceController.dispose();
     super.dispose();
   }
 
-  void _navigateToNextStep() {
+  Future<void> _publishTool() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to list a tool.')),
+        );
+      }
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => SelectAddressScreen(
-            toolData: {
-              "name": _nameController.text.trim(),
-              "description": _descController.text.trim(),
-              "pricePerDay": double.parse(_priceController.text.trim()),
-              "advanceAmount": double.parse(_advanceController.text.trim()), // Pass the new data
-              "category": widget.selectedCategory,
-              "available": _isAvailable,
-            },
-          ),
-        ),
-      );
+      if (_selectedAddress == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a pickup address.')),
+          );
+        }
+        return;
+      }
+
+      final toolData = {
+        "name": _nameController.text.trim(),
+        "description": _descController.text.trim(),
+        "pricePerDay": double.parse(_priceController.text.trim()),
+        "advanceAmount": double.parse(_advanceController.text.trim()),
+        "category": widget.selectedCategory,
+        "available": _isAvailable,
+        "ownerId": user.uid,
+        "address": _selectedAddress,
+        "createdAt": FieldValue.serverTimestamp(),
+        "ratings": [],
+        "ratingCount": 0,
+        "averageRating": 0.0,
+      };
+
+      try {
+        await FirebaseFirestore.instance.collection('tools').add(toolData);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Tool listed successfully!')),
+          );
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error listing tool: $e')),
+          );
+        }
+      }
     }
   }
 
@@ -102,11 +143,109 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
     );
   }
 
+  Widget _buildAddressDropdown(BuildContext context) {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return const SizedBox.shrink(); // Hide dropdown if user is not logged in
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('userAddresses')
+          .where('ownerId', isEqualTo: user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: Colors.greenAccent));
+        }
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Column(
+            children: [
+              const SizedBox(height: 24),
+              const Text("Pickup Address", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              const Divider(color: Colors.white24),
+              TextButton.icon(
+                onPressed: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (context) => const AddAddressScreen(),
+                  ));
+                },
+                icon: const Icon(Icons.add_circle, color: Colors.greenAccent),
+                label: const Text(
+                  "Add a new address to continue.",
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final addresses = snapshot.data!.docs;
+        return Column(
+          children: [
+            const SizedBox(height: 24),
+            const Text("Pickup Address", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Divider(color: Colors.white24),
+            DropdownButtonFormField<String>(
+              value: _selectedAddressId,
+              decoration: InputDecoration(
+                labelText: "Select Address",
+                labelStyle: const TextStyle(color: Colors.white70),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.white10),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: Colors.greenAccent, width: 2),
+                ),
+              ),
+              dropdownColor: const Color(0xFF203a43),
+              style: const TextStyle(color: Colors.white),
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.white70),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedAddressId = newValue;
+                  if (newValue != null) {
+                    _selectedAddress = addresses.firstWhere((doc) => doc.id == newValue).data() as Map<String, dynamic>;
+                  }
+                });
+              },
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please select an address';
+                }
+                return null;
+              },
+              items: addresses.map<DropdownMenuItem<String>>((DocumentSnapshot doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return DropdownMenuItem<String>(
+                  value: doc.id,
+                  child: Text(data['addressName'] ?? 'Unnamed Address', style: const TextStyle(color: Colors.white)),
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("List a Tool", style: TextStyle(color: Colors.white)), // Changed title to reflect purpose
+        title: const Text("List a Tool", style: TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF203a43),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -123,7 +262,7 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
           child: Form(
             key: _formKey,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch, // Stretch children to fill available width
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
                   "Enter Tool Information",
@@ -187,10 +326,12 @@ class _ToolDetailsScreenState extends State<ToolDetailsScreen> {
                 ),
                 const SizedBox(height: 24),
                 _buildAvailabilitySwitch(),
+                const SizedBox(height: 24),
+                _buildAddressDropdown(context),
                 const SizedBox(height: 40),
                 AnimatedButton(
-                  text: "Next",
-                  onTap: _navigateToNextStep,
+                  text: "Publish Tool",
+                  onTap: _publishTool,
                 ),
               ],
             ),

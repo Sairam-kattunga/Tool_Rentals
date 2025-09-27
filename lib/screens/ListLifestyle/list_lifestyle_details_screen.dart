@@ -1,120 +1,55 @@
-// file: lib/screens/ListPackage/list_package_screen.dart
+// lib/screens/ListLifestyle/list_lifestyle_details_screen.dart
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:uuid/uuid.dart';
 import 'package:tool_rental_app/screens/Profile/AddAddressScreen.dart';
 
-class ListPackageScreen extends StatefulWidget {
-  final String selectedCategory;
+class ListLifestyleDetailsScreen extends StatefulWidget {
+  final String categoryName;
 
-  const ListPackageScreen({super.key, required this.selectedCategory});
+  const ListLifestyleDetailsScreen({super.key, required this.categoryName});
 
   @override
-  State<ListPackageScreen> createState() => _ListPackageScreenState();
+  State<ListLifestyleDetailsScreen> createState() => _ListLifestyleDetailsScreenState();
 }
 
-class _ListPackageScreenState extends State<ListPackageScreen> {
+class _ListLifestyleDetailsScreenState extends State<ListLifestyleDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _dailyRateController = TextEditingController();
-  final _weeklyRateController = TextEditingController();
-  final _depositController = TextEditingController();
+  final _priceController = TextEditingController();
   final _brandController = TextEditingController();
-  final _modelController = TextEditingController();
 
-  final List<TextEditingController> _toolControllers = [];
-  final List<String> _toolConditions = ["New", "Like New", "Used - Good", "Used - Fair", "Used - Poor"];
+  final List<String> _itemConditions = ["Brand new", "Gently used", "Fair", "Used - Poor"];
   String? _selectedCondition;
-  bool _isResponsible = false;
   bool _isAvailable = true;
 
   String? _selectedAddressId;
   Map<String, dynamic>? _selectedAddress;
 
   @override
-  void initState() {
-    super.initState();
-    _toolControllers.add(TextEditingController());
-  }
-
-  @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
-    _dailyRateController.dispose();
-    _weeklyRateController.dispose();
-    _depositController.dispose();
+    _priceController.dispose();
     _brandController.dispose();
-    _modelController.dispose();
-    for (var controller in _toolControllers) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
-  void _addToolField() {
-    setState(() {
-      _toolControllers.add(TextEditingController());
-    });
-  }
-
-  void _removeToolField(int index) {
-    setState(() {
-      _toolControllers.removeAt(index).dispose();
-    });
-  }
-
-  Future<void> _publishPackage() async {
+  Future<void> _publishListing() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to list a package.')),
+        const SnackBar(content: Text('Please log in to publish a listing.')),
       );
       return;
     }
 
-    final packageDetails = {
-      'category': widget.selectedCategory,
-      'title': _titleController.text.trim(),
-      'description': _descriptionController.text.trim(),
-      'condition': _selectedCondition,
-      'brand': _brandController.text.trim(),
-      'model': _modelController.text.trim(),
-      'tools': _toolControllers.map((c) => c.text.trim()).where((s) => s.isNotEmpty).toList(),
-      'dailyRate': double.tryParse(_dailyRateController.text.trim()) ?? 0.0,
-      'weeklyRate': double.tryParse(_weeklyRateController.text.trim()) ?? 0.0,
-      'deposit': double.tryParse(_depositController.text.trim()) ?? 0.0,
-      'isResponsible': _isResponsible,
-      'isAvailable': _isAvailable,
-      'address': _selectedAddress,
-      'userId': user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-      'isVerified': false,
-      'isRented': false,
-      'ratings': [],
-      'ratingCount': 0,
-      'averageRating': 0.0,
-    };
-
-    try {
-      await FirebaseFirestore.instance.collection('packages').add(packageDetails);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Package listed successfully!')),
-      );
-      Navigator.of(context).pop();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error listing package: $e')),
-      );
-    }
-  }
-
-  void _showConfirmAndPublishDialog() {
     if (_formKey.currentState!.validate()) {
+      _formKey.currentState!.save();
+
       if (_selectedAddress == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please select a pickup address.')),
@@ -122,33 +57,69 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
         return;
       }
 
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: const Color(0xFF203a43),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text("Confirm Listing", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: const Text("Are you sure you want to publish this package for rent?", style: TextStyle(color: Colors.white70)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _publishPackage();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.greenAccent,
-                foregroundColor: Colors.black,
-              ),
-              child: const Text("Publish"),
-            ),
-          ],
-        ),
-      );
+      final docId = const Uuid().v4();
+      final listingData = {
+        'id': docId,
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'price': double.tryParse(_priceController.text.trim()) ?? 0.0,
+        'category': widget.categoryName,
+        'brand': _brandController.text.trim(),
+        'condition': _selectedCondition,
+        'isAvailable': _isAvailable,
+        'address': _selectedAddress,
+        'ownerId': user.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'isVerified': false,
+        'isRented': false,
+        'ratings': [],
+        'ratingCount': 0,
+        'averageRating': 0.0,
+      };
+
+      try {
+        await FirebaseFirestore.instance.collection('lifestyleItems').doc(docId).set(listingData);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lifestyle item listed successfully!')),
+        );
+        Navigator.of(context).pop();
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error listing item: $e')),
+        );
+      }
     }
+  }
+
+  void _showConfirmAndPublishDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF203a43),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Confirm Listing", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text("Are you sure you want to publish this luxury item for rent?", style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel", style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _publishListing();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.greenAccent,
+              foregroundColor: Colors.black,
+            ),
+            child: const Text("Publish"),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTextField({
@@ -247,17 +218,17 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text("List a Package", style: TextStyle(color: Colors.white)),
+          title: const Text("List an Item", style: TextStyle(color: Colors.white)),
           backgroundColor: const Color(0xFF203a43),
           foregroundColor: Colors.white,
         ),
-        body: const Center(child: Text("Please log in to list a package.", style: TextStyle(color: Colors.white))),
+        body: const Center(child: Text("Please log in to list an item.", style: TextStyle(color: Colors.white))),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("List a ${widget.selectedCategory} Package", style: const TextStyle(color: Colors.white)),
+        title: Text("List a ${widget.categoryName}", style: const TextStyle(color: Colors.white)),
         backgroundColor: const Color(0xFF203a43),
         foregroundColor: Colors.white,
       ),
@@ -278,18 +249,18 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
               children: [
                 const Center(
                   child: Text(
-                    "Step 1 of 1: Package Details & Pricing",
+                    "Step 1 of 1: Item Details & Pricing",
                     style: TextStyle(color: Colors.white54, fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Package Details
-                Text("Package Details", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+                // Item Details
+                Text("Item Details", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                 const Divider(color: Colors.white24, height: 24),
                 _buildTextField(
                   controller: _titleController,
-                  labelText: "Package Title",
-                  icon: Icons.title,
+                  labelText: "Item Title",
+                  icon: Icons.style,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
@@ -301,61 +272,20 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
                 const SizedBox(height: 16),
                 _buildDropdownField(
                   labelText: "Condition",
-                  items: _toolConditions,
+                  items: _itemConditions,
                   selectedValue: _selectedCondition,
                   onChanged: (String? newValue) {
                     setState(() {
                       _selectedCondition = newValue;
                     });
                   },
-                  icon: Icons.handyman,
-                ),
-                const SizedBox(height: 16),
-                // Dynamic Tools List
-                Text("Tools in this Package", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ..._toolControllers.asMap().entries.map((entry) {
-                  int index = entry.key;
-                  TextEditingController controller = entry.value;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            controller: controller,
-                            labelText: "Tool ${index + 1}",
-                            icon: Icons.build,
-                          ),
-                        ),
-                        if (_toolControllers.length > 1)
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                            onPressed: () => _removeToolField(index),
-                          ),
-                      ],
-                    ),
-                  );
-                }),
-                Center(
-                  child: TextButton.icon(
-                    onPressed: _addToolField,
-                    icon: const Icon(Icons.add, color: Colors.greenAccent),
-                    label: const Text("Add Another Tool", style: TextStyle(color: Colors.greenAccent)),
-                  ),
+                  icon: Icons.health_and_safety,
                 ),
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _brandController,
                   labelText: "Brand (Optional)",
-                  icon: Icons.business,
-                  isRequired: false,
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _modelController,
-                  labelText: "Model (Optional)",
-                  icon: Icons.model_training,
+                  icon: Icons.diamond,
                   isRequired: false,
                 ),
                 const SizedBox(height: 24),
@@ -364,43 +294,13 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
                 Text("Pricing & Terms", style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
                 const Divider(color: Colors.white24, height: 24),
                 _buildTextField(
-                  controller: _dailyRateController,
-                  labelText: "Daily Rental Rate (in INR)",
+                  controller: _priceController,
+                  labelText: "Rental Rate (in ₹)",
                   icon: Icons.currency_rupee,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Daily rate is required';
-                    }
-                    if (double.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _weeklyRateController,
-                  labelText: "Weekly Rental Rate (in INR)",
-                  icon: Icons.calendar_today,
-                  isRequired: false,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty && double.tryParse(value) == null) {
-                      return 'Please enter a valid number';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _buildTextField(
-                  controller: _depositController,
-                  labelText: "Security Deposit (in INR)",
-                  icon: Icons.security,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Deposit is required';
+                      return 'Rental rate is required';
                     }
                     if (double.tryParse(value) == null) {
                       return 'Please enter a valid number';
@@ -515,29 +415,6 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-
-                // Responsibility Checkbox
-                Row(
-                  children: [
-                    Checkbox(
-                      value: _isResponsible,
-                      onChanged: (bool? newValue) {
-                        setState(() {
-                          _isResponsible = newValue ?? false;
-                        });
-                      },
-                      activeColor: Colors.greenAccent,
-                      checkColor: Colors.black,
-                    ),
-                    const Expanded(
-                      child: Text(
-                        "I am responsible for any tool-related issues and will address them.",
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 40),
 
                 // Review Button
@@ -549,7 +426,7 @@ class _ListPackageScreenState extends State<ListPackageScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
-                    child: const Text("Publish Package", style: TextStyle(fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold)),
+                    child: const Text("Publish Listing", style: TextStyle(fontSize: 18, color: Colors.black, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 20),

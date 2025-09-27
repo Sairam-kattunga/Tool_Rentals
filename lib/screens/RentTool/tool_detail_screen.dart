@@ -13,6 +13,7 @@ class ToolDetailScreen extends StatelessWidget {
     required this.docId,
   });
 
+  // Reusable widget to build a row of information
   Widget _buildInfoRow({
     required IconData icon,
     required String label,
@@ -20,51 +21,54 @@ class ToolDetailScreen extends StatelessWidget {
     bool isCopyable = false,
     BuildContext? context,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.white70),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      value,
-                      style: const TextStyle(color: Colors.white70, fontSize: 16),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white70),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  if (isCopyable)
-                    IconButton(
-                      icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
-                      onPressed: () {
-                        if (context != null) {
-                          Clipboard.setData(ClipboardData(text: value));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text("Copied to clipboard")),
-                          );
-                        }
-                      },
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        value,
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                ],
-              ),
-            ],
+                    if (isCopyable)
+                      IconButton(
+                        icon: const Icon(Icons.copy, color: Colors.white70, size: 16),
+                        onPressed: () {
+                          if (context != null) {
+                            Clipboard.setData(ClipboardData(text: value));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Copied to clipboard")),
+                            );
+                          }
+                        },
+                      ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -160,9 +164,46 @@ class ToolDetailScreen extends StatelessWidget {
     );
   }
 
+  // New method to handle saving an item
+  Future<void> _handleSaveItem(BuildContext context, Map<String, dynamic> toolData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please log in to save items.")),
+      );
+      return;
+    }
+    final savedItemRef = FirebaseFirestore.instance.collection("users").doc(user.uid).collection("savedItems").doc(docId);
+
+    try {
+      final doc = await savedItemRef.get();
+      if (doc.exists) {
+        await savedItemRef.delete();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Item unsaved.")),
+        );
+      } else {
+        await savedItemRef.set({
+          'itemId': docId,
+          'type': 'tool', // To identify the item type
+          'title': toolData['name'],
+          'price': toolData['pricePerDay'],
+          'imageUrl': 'lib/assets/Categories/Drills.png', // Placeholder or actual image URL
+          'savedAt': FieldValue.serverTimestamp(),
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Item saved!")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    // A map to hold the image paths for each tool category.
     final Map<String, String> categoryImages = {
       "Drills": "lib/assets/Categories/Drills.png",
       "Saws": "lib/assets/Categories/Saws.png",
@@ -175,6 +216,7 @@ class ToolDetailScreen extends StatelessWidget {
       "Miscellaneous": "lib/assets/Categories/Miscellaneous.png",
       "All": "lib/assets/Categories/All.png",
     };
+    final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
       appBar: AppBar(
@@ -185,6 +227,37 @@ class ToolDetailScreen extends StatelessWidget {
         backgroundColor: const Color(0xFF203a43),
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: user != null ? [
+          StreamBuilder<DocumentSnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection("users")
+                .doc(user.uid)
+                .collection("savedItems")
+                .doc(docId)
+                .snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: Colors.white));
+              }
+              final isSaved = snapshot.hasData && snapshot.data!.exists;
+              return IconButton(
+                icon: Icon(
+                  isSaved ? Icons.favorite : Icons.favorite_border,
+                  color: isSaved ? Colors.redAccent : Colors.white,
+                ),
+                onPressed: () {
+                  // The data is available in the FutureBuilder snapshot, so we need to get it from there.
+                  // This is a common pattern for widgets that need data from two different streams/futures.
+                  FirebaseFirestore.instance.collection('tools').doc(docId).get().then((doc) {
+                    if (doc.exists) {
+                      _handleSaveItem(context, doc.data() as Map<String, dynamic>);
+                    }
+                  });
+                },
+              );
+            },
+          ),
+        ] : [],
       ),
       body: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance.collection('tools').doc(docId).get(),
@@ -205,7 +278,6 @@ class ToolDetailScreen extends StatelessWidget {
           final String category = toolData["category"] ?? "Miscellaneous";
           final String headerImage = categoryImages[category] ?? "lib/assets/Categories/Miscellaneous.png";
 
-          // Correctly fetch address data directly from the toolData map
           final Map<String, dynamic>? addressData = toolData['address'];
           final String addressName = addressData?['addressName'] ?? 'N/A';
           final String street = addressData?['street'] ?? 'N/A';
@@ -295,7 +367,6 @@ class ToolDetailScreen extends StatelessWidget {
                         ),
                       ],
                     ),
-
                     Padding(
                       padding: const EdgeInsets.all(24),
                       child: Column(
@@ -317,7 +388,7 @@ class ToolDetailScreen extends StatelessWidget {
                                   StarRating(rating: averageRating),
                                   const SizedBox(width: 8),
                                   Text(
-                                    "(${ratingCount} reviews)",
+                                    "($ratingCount reviews)",
                                     style: const TextStyle(color: Colors.white70),
                                   ),
                                 ],
@@ -362,16 +433,14 @@ class ToolDetailScreen extends StatelessWidget {
                                     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
                                       if (context.mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                              content: Text('Could not open map.')),
+                                          const SnackBar(content: Text('Could not open map.')),
                                         );
                                       }
                                     }
                                   } catch (e) {
                                     if (context.mounted) {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                            content: Text('An error occurred.')),
+                                        const SnackBar(content: Text('An error occurred.')),
                                       );
                                     }
                                   }
@@ -392,6 +461,8 @@ class ToolDetailScreen extends StatelessWidget {
                                 ),
                               ),
                             ),
+                          const SizedBox(height: 20),
+                          const Divider(color: Colors.white24),
                           const SizedBox(height: 20),
                           _buildInfoRow(
                             icon: Icons.category,
@@ -539,7 +610,6 @@ class ToolDetailScreen extends StatelessWidget {
   }
 }
 
-// A simple StarRating widget for displaying star ratings
 class StarRating extends StatelessWidget {
   final double rating;
 
@@ -566,3 +636,4 @@ class StarRating extends StatelessWidget {
     );
   }
 }
+//Now for this screen make the same functionality for the saved items as for the lifestyle items in the previous conversation. And also a new route '/edit_tool' has to be there//

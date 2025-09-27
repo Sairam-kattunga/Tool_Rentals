@@ -25,8 +25,10 @@ import 'screens/MyTools/MyToolsScreen.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'intro_screen.dart';
-import 'screens/wallet_screen.dart';
-
+import 'screens/wallet/wallet_screen.dart';
+import 'screens/Experiences/rent_experience_screen.dart';
+import 'screens/RentProperty/RentPropertyScreen.dart';
+import 'screens/RentLifestyle/LifestyleItemsScreen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
@@ -72,6 +74,9 @@ class MyApp extends StatelessWidget {
         '/tool_packages': (context) => const ToolPackagesScreen(),
         '/vehicle_rentals': (context) => const VehicleRentalScreen(),
         '/wallet': (context) => const WalletScreen(),
+        '/rent_experience': (context) => const RentExperienceScreen(),
+        '/property_rentals': (context) => const RentPropertyScreen(),
+        '/luxury_lifestyle' : (context) => const LifestyleItemsScreen(),
       },
     );
   }

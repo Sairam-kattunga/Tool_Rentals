@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:tool_rental_app/services/auth_service.dart';
 import 'package:tool_rental_app/screens/Profile/AddressesScreen.dart';
-// Import the new EditProfileScreen
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -82,6 +81,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (context) => const AddressesScreen()),
     );
+  }
+
+  // New method to handle KYC verification
+  void _handleKycVerification() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('KYC verification process initiated...')),
+    );
+    // TODO: Add your actual navigation or logic for KYC here.
   }
 
   Widget _buildActionTile(IconData icon, String title, VoidCallback onTap, {bool destructive = false}) {
@@ -200,6 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Action tiles
                   _buildActionTile(Icons.edit, "Edit Profile", _handleEditProfile),
                   _buildActionTile(Icons.location_on, "Addresses", _handleAddresses),
+                  _buildActionTile(Icons.verified_user_outlined, "KYC Verification", _handleKycVerification), // NEW: KYC tile
                 ],
               ),
             ),
